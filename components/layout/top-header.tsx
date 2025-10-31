@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 import { Menu, X } from 'lucide-react'
 import GlobalSearch from '@/components/global-search'
@@ -41,11 +41,15 @@ export default function TopHeader() {
 
 function MobileSidebarOverlay({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const pathname = usePathname()
+  const prevPathnameRef = React.useRef(pathname)
   
   useEffect(() => {
-    // Close menu when route changes
-    if (isOpen && pathname) {
+    // Close menu only when route actually changes (not on initial mount)
+    if (isOpen && pathname && prevPathnameRef.current !== pathname) {
+      prevPathnameRef.current = pathname
       onClose()
+    } else {
+      prevPathnameRef.current = pathname
     }
   }, [pathname, isOpen, onClose])
 
@@ -73,10 +77,12 @@ function MobileSidebarOverlay({ isOpen, onClose }: { isOpen: boolean; onClose: (
       />
       {/* Sidebar */}
       <div 
-        className={`lg:hidden fixed inset-y-0 left-0 w-64 bg-white dark:bg-gray-900 shadow-2xl transform transition-transform duration-300 ease-in-out ${
-          isOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}
-        style={{ zIndex: 9999 }}
+        className="lg:hidden fixed inset-y-0 left-0 w-64 bg-white dark:bg-gray-900 shadow-2xl"
+        style={{ 
+          zIndex: 9999,
+          transform: isOpen ? 'translateX(0)' : 'translateX(-100%)',
+          transition: 'transform 300ms ease-in-out'
+        }}
       >
         <Sidebar onMobileClose={onClose} isMobile={true} />
       </div>
