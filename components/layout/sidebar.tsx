@@ -30,16 +30,8 @@ export default function Sidebar({ onMobileClose, isMobile = false }: { onMobileC
   const pathname = usePathname()
   const router = useRouter()
 
-  // Close mobile menu when route changes (only on pathname change, not on mount)
-  useEffect(() => {
-    if (onMobileClose && isMobile && pathname) {
-      // Only close if pathname actually changed (not on initial mount)
-      const timeoutId = setTimeout(() => {
-        onMobileClose()
-      }, 100)
-      return () => clearTimeout(timeoutId)
-    }
-  }, [pathname]) // Only depend on pathname, not onMobileClose
+  // Note: Menu closing on route change is handled by MobileSidebarOverlay in top-header.tsx
+  // This prevents duplicate close logic that could cause issues
 
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, current: pathname === '/dashboard' },
