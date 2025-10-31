@@ -22,6 +22,9 @@ interface CalendarEvent {
   assignee?: string
   project_id?: string
   color?: string
+  // For synced/recurring events
+  external_uid?: string
+  recurrence?: string
 }
 
 interface CalendarDay {
@@ -705,6 +708,10 @@ export default function EnhancedCalendarPage() {
       
       // Load synced events from external calendars
       if (supabase) {
+        // Expand date range to show more events (6 months total: 3 months back, 3 months forward)
+        const startDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 3, 1)
+        const endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 4, 0)
+        
         const { data: syncedEventsData, error: syncedError } = await supabase
           .from('synced_events')
           .select(`
@@ -715,63 +722,96 @@ export default function EnhancedCalendarPage() {
               enabled
             )
           `)
-          .gte('start_time', new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1).toISOString())
-          .lte('start_time', new Date(currentDate.getFullYear(), currentDate.getMonth() + 2, 0).toISOString())
+          .gte('start_time', startDate.toISOString())
+          .lte('start_time', endDate.toISOString())
           .order('start_time', { ascending: true })
 
         if (!syncedError && syncedEventsData) {
           console.log(`📅 Loaded ${syncedEventsData.length} synced events from external calendars`)
           let addedCount = 0
+          let skippedDisabled = 0
           
-          // Track unique synced events by external_uid to prevent duplicates
-          const seenExternalUids = new Set<string>()
+          // Track events by unique key to prevent true duplicates (same external_uid + same start_time)
+          // Note: Recurring events have same external_uid but different start_time, so all instances will show
+          const seenEventKeys = new Set<string>()
           
           syncedEventsData.forEach((syncedEvent: any) => {
             // Only include if the sync is enabled
-            if (syncedEvent.sync?.enabled) {
-              // Check for duplicate external_uid (from recurring events)
-              const eventKey = `${syncedEvent.external_uid}-${syncedEvent.start_time}`
+            if (!syncedEvent.sync?.enabled) {
+              skippedDisabled++
+              return
+            }
+            
+            // Create unique key: external_uid + start_time
+            // This ensures recurring events (same external_uid, different start_time) all show
+            // But prevents duplicates if somehow the same event is loaded twice
+            const eventKey = `${syncedEvent.external_uid}-${syncedEvent.start_time}`
+            
+            if (!seenEventKeys.has(eventKey)) {
+              seenEventKeys.add(eventKey)
               
-              if (!seenExternalUids.has(eventKey)) {
-                seenExternalUids.add(eventKey)
-                
-                calendarEvents.push({
-                  id: `synced-${syncedEvent.id}`,
-                  title: syncedEvent.title,
-                  type: 'meeting',
-                  start: new Date(syncedEvent.start_time),
-                  end: syncedEvent.end_time ? new Date(syncedEvent.end_time) : undefined,
-                  description: syncedEvent.description || '',
-                  status: 'scheduled',
-                  color: syncedEvent.sync?.color || 'purple',
-                  allDay: syncedEvent.all_day || false
-                })
-                addedCount++
-              } else {
-                console.log(`🔄 Skipped duplicate synced event: ${syncedEvent.title} at ${syncedEvent.start_time}`)
-              }
+              calendarEvents.push({
+                id: `synced-${syncedEvent.id}`,
+                title: syncedEvent.title,
+                type: 'meeting',
+                start: new Date(syncedEvent.start_time),
+                end: syncedEvent.end_time ? new Date(syncedEvent.end_time) : undefined,
+                description: syncedEvent.description || '',
+                status: 'scheduled',
+                color: syncedEvent.sync?.color || 'purple',
+                allDay: syncedEvent.all_day || false,
+                // Store external_uid for recurring event detection
+                external_uid: syncedEvent.external_uid,
+                recurrence: syncedEvent.recurrence
+              })
+              addedCount++
+            } else {
+              console.log(`🔄 Skipped duplicate synced event: ${syncedEvent.title} at ${syncedEvent.start_time}`)
             }
           })
+          
           console.log(`✅ Added ${addedCount} unique enabled synced events to calendar`)
+          if (skippedDisabled > 0) {
+            console.log(`ℹ️  Skipped ${skippedDisabled} events from disabled syncs`)
+          }
+          
+          // Log recurring events info
+          const recurringCount = syncedEventsData.filter(e => e.recurrence).length
+          if (recurringCount > 0) {
+            console.log(`🔄 Found ${recurringCount} recurring event instances (all shown)`)
+          }
         } else if (syncedError) {
           console.warn('Error loading synced events:', syncedError)
         }
       }
 
-      // Enhanced deduplication: Remove events with same ID, title, and start time
-      // This handles cases where recurring events or synced events might create duplicates
+      // Enhanced deduplication: Remove true duplicates but preserve recurring events
+      // IMPORTANT: Recurring events have same external_uid but different start_time
+      // We only remove duplicates with EXACT same ID or same title + same exact start time
       const uniqueEvents = calendarEvents.filter((event, index, self) => {
         return index === self.findIndex((e) => {
-          // Check if it's the exact same event (same ID)
+          // Check if it's the exact same event (same ID) - always keep first occurrence
           if (e.id === event.id) return true
           
-          // Also check for duplicates with different ID prefixes but same underlying data
-          // (e.g., meeting-123 vs synced-123, or recurring instances)
+          // For synced events with external_uid, use that + start_time as unique key
+          // This ensures recurring events (same external_uid, different start_time) are preserved
+          if (event.external_uid && e.external_uid) {
+            const sameExternalUid = e.external_uid === event.external_uid
+            const sameStartTime = e.start.getTime() === event.start.getTime()
+            // If same external_uid and same start_time, it's a duplicate
+            if (sameExternalUid && sameStartTime) return true
+            // If same external_uid but different start_time, they're both recurring instances - keep both
+            if (sameExternalUid && !sameStartTime) return false
+          }
+          
+          // For other events, check for duplicates with same title + exact same start time + same type
+          // This handles cases like manually created meeting matching a synced event
           const sameTitle = e.title === event.title
           const sameStartTime = e.start.getTime() === event.start.getTime()
           const sameType = e.type === event.type
           
-          // If same title, time, and type, it's likely a duplicate
+          // Only consider it a duplicate if ALL three match exactly
+          // This preserves recurring events which have different start times
           return sameTitle && sameStartTime && sameType
         })
       })
