@@ -26,15 +26,9 @@ import ThemeToggle from '@/components/theme-toggle'
 
 export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false)
-  const [mobileOpen, setMobileOpen] = useState(false)
   const { user, signOut } = useAuth()
   const pathname = usePathname()
   const router = useRouter()
-
-  // Close mobile menu when route changes
-  useEffect(() => {
-    setMobileOpen(false)
-  }, [pathname])
 
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, current: pathname === '/dashboard' },
@@ -77,31 +71,10 @@ export default function Sidebar() {
 
   return (
     <>
-      {/* Mobile menu button */}
-      <button
-        onClick={() => setMobileOpen(!mobileOpen)}
-        className="lg:hidden fixed top-20 left-4 z-50 p-2 rounded-lg bg-white dark:bg-gray-800 shadow-lg border border-gray-200 dark:border-gray-700"
-        aria-label="Toggle menu"
-      >
-        {mobileOpen ? (
-          <X className="h-6 w-6 text-gray-700 dark:text-gray-300" />
-        ) : (
-          <Menu className="h-6 w-6 text-gray-700 dark:text-gray-300" />
-        )}
-      </button>
-
-      {/* Overlay for mobile */}
-      {mobileOpen && (
-        <div
-          className="lg:hidden fixed inset-0 bg-black/50 z-40"
-          onClick={() => setMobileOpen(false)}
-        />
-      )}
+      {/* Mobile menu is now handled by TopHeader */}
 
       {/* Sidebar */}
-      <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-gray-900 shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0 ${
-        mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
-      }`}>
+      <div className="fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-gray-900 shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0 -translate-x-full lg:translate-x-0">
       <div className="flex flex-col h-full">
         {/* Logo */}
         <div className="flex items-center justify-between h-16 px-6 border-b border-gray-200 dark:border-gray-700">

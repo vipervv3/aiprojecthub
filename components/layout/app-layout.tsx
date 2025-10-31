@@ -22,8 +22,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
       <TopHeader />
       
       {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden ml-0 lg:ml-64 pt-16 lg:pt-16">
-        <main className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900">
+      <div className="flex-1 flex flex-col overflow-hidden ml-0 lg:ml-64">
+        <main className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 pt-16">
           {children}
         </main>
       </div>
