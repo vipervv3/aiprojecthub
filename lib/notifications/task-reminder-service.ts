@@ -465,13 +465,28 @@ Don't include emojis. Be direct and helpful.`
       }
 
       // Check notification preferences
+      // Default to enabled if not set (opt-out model)
       const prefs = user.notification_preferences || {}
       const reminderPrefs = prefs.reminder_timing || {}
       
-      // Check if this type of reminder is enabled
-      if (reminderType === '1hour' && reminderPrefs.task_1hour === false) return
-      if (reminderType === '1day' && reminderPrefs.task_1day === false) return
-      if (!prefs.task_reminders && !prefs.email_daily_summary) return
+      // Check if this type of reminder is explicitly disabled
+      if (reminderType === '1hour' && reminderPrefs.task_1hour === false) {
+        console.log(`1-hour reminders disabled for user ${user.id}`)
+        return
+      }
+      if (reminderType === '1day' && reminderPrefs.task_1day === false) {
+        console.log(`1-day reminders disabled for user ${user.id}`)
+        return
+      }
+      
+      // Check if task reminders are enabled (default to true)
+      const taskRemindersEnabled = prefs.task_reminders !== false
+      const emailEnabled = prefs.email_daily_summary !== false
+      
+      if (!taskRemindersEnabled && !emailEnabled) {
+        console.log(`Task reminders disabled for user ${user.id}`)
+        return
+      }
 
       console.log(`Sending ${reminderType} reminder for task: ${task.title}`)
 

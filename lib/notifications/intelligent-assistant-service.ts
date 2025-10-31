@@ -250,9 +250,18 @@ Based on their current tasks and progress, provide ${period === 'morning' ? 'a m
       }
 
       // Check if user has email notifications enabled
+      // Default to enabled if not set (opt-out model)
       const prefs = userData.user.notification_preferences || {}
-      if (!prefs.email_daily_summary && !prefs.morning_notifications) {
-        console.log(`User ${userId} has email notifications disabled`)
+      const emailEnabled = prefs.email_daily_summary !== false
+      const morningEnabled = prefs.morning_notifications !== false
+      
+      // For morning, need both enabled. For others, just email_daily_summary
+      const shouldSend = period === 'morning' 
+        ? (emailEnabled && morningEnabled)
+        : emailEnabled
+      
+      if (!shouldSend) {
+        console.log(`User ${userId} has ${period} notifications disabled`)
         return
       }
 
