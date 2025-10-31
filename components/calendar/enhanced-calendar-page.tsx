@@ -145,17 +145,17 @@ const CreateMeetingModal: React.FC<{
               placeholder="Conference Room A, Zoom link, etc."
             />
           </div>
-          <div className="flex justify-end gap-3 pt-4 border-t">
+          <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
+              className="px-4 py-2 text-gray-600 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 touch-manipulation"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              className="px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 touch-manipulation"
             >
               Create Meeting
             </button>
@@ -324,13 +324,13 @@ const EventModal: React.FC<{ event: CalendarEvent; onClose: () => void; onDelete
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={onClose}>
-      <div className="bg-white rounded-lg p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-black bg-opacity-50 dark:bg-black/70 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-white dark:bg-gray-800 rounded-lg p-4 sm:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-bold text-gray-900">{event.title}</h2>
+          <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">{event.title}</h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
+            className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 touch-manipulation"
           >
             ×
           </button>
@@ -348,7 +348,7 @@ const EventModal: React.FC<{ event: CalendarEvent; onClose: () => void; onDelete
             )}
           </div>
 
-          <div className="flex items-center gap-2 text-gray-600">
+          <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
             <Calendar className="h-4 w-4" />
             <span>{event.start.toLocaleDateString('en-US', { 
               weekday: 'long', 
@@ -359,7 +359,7 @@ const EventModal: React.FC<{ event: CalendarEvent; onClose: () => void; onDelete
           </div>
 
           {!event.allDay && (
-            <div className="flex items-center gap-2 text-gray-600">
+            <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
               <Clock className="h-4 w-4" />
               <span>
                 {event.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -369,7 +369,7 @@ const EventModal: React.FC<{ event: CalendarEvent; onClose: () => void; onDelete
           )}
 
           {event.assignee && (
-            <div className="flex items-center gap-2 text-gray-600">
+            <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
               <Users className="h-4 w-4" />
               <span>{event.assignee}</span>
             </div>
@@ -377,14 +377,14 @@ const EventModal: React.FC<{ event: CalendarEvent; onClose: () => void; onDelete
 
           {event.description && (
             <div>
-              <h3 className="font-medium text-gray-900 mb-2">Description</h3>
-              <p className="text-gray-600 text-sm">{event.description}</p>
+              <h3 className="font-medium text-gray-900 dark:text-gray-100 mb-2">Description</h3>
+              <p className="text-gray-600 dark:text-gray-400 text-sm">{event.description}</p>
             </div>
           )}
 
           {event.status && (
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-gray-700">Status:</span>
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Status:</span>
               <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                 event.status === 'completed' ? 'bg-green-100 text-green-800' :
                 event.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
@@ -396,7 +396,7 @@ const EventModal: React.FC<{ event: CalendarEvent; onClose: () => void; onDelete
             </div>
           )}
 
-          <div className="flex justify-between pt-4 border-t">
+          <div className="flex flex-col sm:flex-row sm:justify-between gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
             <div className="flex gap-2">
               {/* Only show Edit/Delete for manually created meetings, not synced external calendar events */}
               {event.type === 'meeting' && !event.id.startsWith('synced-') && onEdit && (
@@ -405,7 +405,7 @@ const EventModal: React.FC<{ event: CalendarEvent; onClose: () => void; onDelete
                     onEdit(event)
                     onClose()
                   }}
-                  className="px-4 py-2 text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 flex items-center gap-2"
+                  className="px-4 py-2 text-blue-600 dark:text-blue-400 border border-blue-300 dark:border-blue-600 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 flex items-center gap-2 touch-manipulation"
                 >
                   <FileText className="h-4 w-4" />
                   Edit
@@ -419,7 +419,7 @@ const EventModal: React.FC<{ event: CalendarEvent; onClose: () => void; onDelete
                       onClose()
                     }
                   }}
-                  className="px-4 py-2 text-red-600 border border-red-300 rounded-lg hover:bg-red-50 flex items-center gap-2"
+                  className="px-4 py-2 text-red-600 dark:text-red-400 border border-red-300 dark:border-red-600 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2 touch-manipulation"
                 >
                   <Trash2 className="h-4 w-4" />
                   Delete
@@ -429,13 +429,13 @@ const EventModal: React.FC<{ event: CalendarEvent; onClose: () => void; onDelete
             <div className="flex gap-3">
               <button
                 onClick={onClose}
-                className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
+                className="px-4 py-2 text-gray-600 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 touch-manipulation"
               >
                 Close
               </button>
               <button
                 onClick={handleViewDetails}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+                className="px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 flex items-center gap-2 touch-manipulation"
               >
                 <FileText className="h-4 w-4" />
                 View Details
@@ -454,7 +454,25 @@ export default function EnhancedCalendarPage() {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [events, setEvents] = useState<CalendarEvent[]>([])
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null)
-  const [view, setView] = useState<'month' | 'week' | 'day'>('week')
+  const [view, setView] = useState<'month' | 'week' | 'day' | 'mobile3day'>('week')
+  const [isMobile, setIsMobile] = useState(false)
+
+  // Detect mobile and set view accordingly
+  useEffect(() => {
+    const checkMobile = () => {
+      const mobile = window.innerWidth < 768
+      setIsMobile(mobile)
+      if (mobile && view === 'week') {
+        setView('mobile3day')
+      } else if (!mobile && view === 'mobile3day') {
+        setView('week')
+      }
+    }
+    
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [view])
   const [loading, setLoading] = useState(true)
   const [typeFilter, setTypeFilter] = useState('all')
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -1159,42 +1177,44 @@ export default function EnhancedCalendarPage() {
   const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
   return (
-    <div className="p-6">
+    <div className="p-3 sm:p-4 lg:p-6">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Calendar</h1>
-            <div className="flex items-center gap-2 mt-2">
-              <p className="text-gray-600">View your projects, tasks, and meetings</p>
+        {/* Header - Mobile Optimized */}
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-4 sm:mb-6 lg:mb-8">
+          <div className="flex-1">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">Calendar</h1>
+            <div className="flex flex-wrap items-center gap-2 mt-1 sm:mt-2">
+              <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">View your projects, tasks, and meetings</p>
               {autoSyncing && (
-                <span className="flex items-center gap-1 text-xs text-blue-600">
+                <span className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400">
                   <RefreshCw className="h-3 w-3 animate-spin" />
                   Syncing...
                 </span>
               )}
               {lastSyncTime && !autoSyncing && (
-                <span className="text-xs text-gray-500">
+                <span className="text-xs text-gray-500 dark:text-gray-400 hidden sm:inline">
                   • Last synced: {lastSyncTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </span>
               )}
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          
+          {/* Desktop Actions */}
+          <div className="hidden lg:flex items-center gap-3 flex-wrap">
             {/* View Selector */}
-            <div className="flex border border-gray-300 rounded-lg overflow-hidden">
+            <div className="flex border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden">
               <button
                 onClick={() => setView('month')}
-                className={`px-4 py-2 text-sm font-medium ${
-                  view === 'month' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+                className={`px-4 py-2 text-sm font-medium touch-manipulation ${
+                  view === 'month' ? 'bg-blue-600 dark:bg-blue-500 text-white' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
                 }`}
               >
                 Month
               </button>
               <button
                 onClick={() => setView('week')}
-                className={`px-4 py-2 text-sm font-medium border-l border-gray-300 ${
-                  view === 'week' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+                className={`px-4 py-2 text-sm font-medium border-l border-gray-300 dark:border-gray-600 touch-manipulation ${
+                  view === 'week' ? 'bg-blue-600 dark:bg-blue-500 text-white' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
                 }`}
               >
                 Week
@@ -1203,7 +1223,7 @@ export default function EnhancedCalendarPage() {
             <select
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm"
             >
               <option value="all">All Events</option>
               <option value="project">Projects</option>
@@ -1216,59 +1236,224 @@ export default function EnhancedCalendarPage() {
                 loadEvents()
                 toast.success('Calendar refreshed')
               }}
-              className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 flex items-center gap-2"
+              className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 flex items-center gap-2 touch-manipulation"
             >
               <Calendar className="h-5 w-5" />
               Refresh
             </button>
             <button
               onClick={() => setShowSyncManager(true)}
-              className="bg-purple-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-purple-700 transition-colors"
+              className="bg-purple-600 dark:bg-purple-500 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-purple-700 dark:hover:bg-purple-600 transition-colors touch-manipulation"
             >
               <RefreshCw className="h-5 w-5" />
-              Sync Calendars
+              Sync
             </button>
             <button
               onClick={() => {
                 setSelectedDate(undefined)
                 setShowCreateModal(true)
               }}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 transition-colors"
+              className="bg-blue-600 dark:bg-blue-500 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors touch-manipulation"
             >
               <Plus className="h-5 w-5" />
               Add Meeting
             </button>
           </div>
+
+          {/* Mobile Actions */}
+          <div className="flex lg:hidden items-center gap-2 flex-wrap">
+            <button
+              onClick={() => {
+                setSelectedDate(undefined)
+                setShowCreateModal(true)
+              }}
+              className="bg-blue-600 dark:bg-blue-500 text-white px-4 py-2.5 rounded-lg flex items-center gap-2 hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors touch-manipulation text-sm font-medium flex-1 sm:flex-none justify-center"
+            >
+              <Plus className="h-4 w-4" />
+              <span className="sm:hidden">Add</span>
+              <span className="hidden sm:inline">Add Meeting</span>
+            </button>
+            <button
+              onClick={() => setShowSyncManager(true)}
+              className="bg-purple-600 dark:bg-purple-500 text-white px-3 py-2.5 rounded-lg hover:bg-purple-700 dark:hover:bg-purple-600 transition-colors touch-manipulation"
+              title="Sync Calendars"
+            >
+              <RefreshCw className="h-4 w-4" />
+            </button>
+            <button 
+              onClick={() => {
+                loadEvents()
+                toast.success('Calendar refreshed')
+              }}
+              className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 px-3 py-2.5 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 touch-manipulation"
+              title="Refresh"
+            >
+              <Calendar className="h-4 w-4" />
+            </button>
+          </div>
         </div>
 
-        {/* Legend */}
-        <div className="bg-white rounded-lg border border-gray-200 p-4 mb-6">
-          <div className="flex items-center gap-8">
-            <span className="text-sm font-medium text-gray-700">Event Types:</span>
+        {/* Legend - Hidden on mobile */}
+        <div className="hidden sm:block bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 mb-6">
+          <div className="flex items-center gap-4 sm:gap-8 flex-wrap">
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Event Types:</span>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 bg-blue-500 rounded"></div>
-              <span className="text-sm text-gray-600">Projects</span>
+              <span className="text-sm text-gray-600 dark:text-gray-400">Projects</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 bg-green-500 rounded"></div>
-              <span className="text-sm text-gray-600">Tasks</span>
+              <span className="text-sm text-gray-600 dark:text-gray-400">Tasks</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 bg-purple-500 rounded"></div>
-              <span className="text-sm text-gray-600">Meetings</span>
+              <span className="text-sm text-gray-600 dark:text-gray-400">Meetings</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 bg-red-500 rounded"></div>
-              <span className="text-sm text-gray-600">Deadlines</span>
+              <span className="text-sm text-gray-600 dark:text-gray-400">Deadlines</span>
             </div>
           </div>
         </div>
 
-        {/* Week View with Time Slots */}
-        {view === 'week' && (
-          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+        {/* Mobile 3-Day View - Shows only 3 days on mobile */}
+        {(view === 'mobile3day' || (isMobile && view === 'week')) && (
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+            {/* Mobile Navigation */}
+            <div className="flex items-center justify-between p-3 sm:p-4 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    const newDate = new Date(currentDate)
+                    newDate.setDate(currentDate.getDate() - 3)
+                    setCurrentDate(newDate)
+                  }}
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg touch-manipulation"
+                >
+                  <ChevronLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                </button>
+                <button
+                  onClick={() => setCurrentDate(new Date())}
+                  className="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg touch-manipulation"
+                >
+                  Today
+                </button>
+                <button
+                  onClick={() => {
+                    const newDate = new Date(currentDate)
+                    newDate.setDate(currentDate.getDate() + 3)
+                    setCurrentDate(newDate)
+                  }}
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg touch-manipulation"
+                >
+                  <ChevronRight className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                </button>
+              </div>
+              <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100">
+                {currentDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+              </h2>
+            </div>
+
+            {/* 3-Day Grid */}
+            <div className="overflow-x-auto">
+              <div className="grid grid-cols-3 min-w-full">
+                {(() => {
+                  // Get today, tomorrow, and day after tomorrow
+                  const today = new Date(currentDate)
+                  today.setHours(0, 0, 0, 0)
+                  
+                  return Array.from({ length: 3 }).map((_, dayIndex) => {
+                    const dayDate = new Date(today)
+                    dayDate.setDate(today.getDate() + dayIndex)
+                    const isToday = dayDate.toDateString() === new Date().toDateString()
+                    const dayName = dayDate.toLocaleDateString('en-US', { weekday: 'short' })
+                    const dayNum = dayDate.getDate()
+                    const monthName = dayDate.toLocaleDateString('en-US', { month: 'short' })
+                    
+                    // Get events for this day
+                    const dayEvents = filteredEvents.filter(event => {
+                      if (event.allDay) {
+                        const eventDay = new Date(event.start.getFullYear(), event.start.getMonth(), event.start.getDate())
+                        return eventDay.toDateString() === dayDate.toDateString()
+                      }
+                      const eventDay = new Date(event.start.getFullYear(), event.start.getMonth(), event.start.getDate())
+                      return eventDay.toDateString() === dayDate.toDateString()
+                    })
+                    
+                    return (
+                      <div 
+                        key={dayIndex}
+                        className={`border-r border-gray-200 dark:border-gray-700 last:border-r-0 ${isToday ? 'bg-blue-50 dark:bg-blue-900/20' : 'bg-white dark:bg-gray-800'}`}
+                      >
+                        {/* Day Header */}
+                        <div className={`p-3 text-center border-b border-gray-200 dark:border-gray-700 ${isToday ? 'bg-blue-100 dark:bg-blue-900/30' : ''}`}>
+                          <div className="text-xs text-gray-500 dark:text-gray-400 font-medium">{dayName}</div>
+                          <div className={`text-lg sm:text-xl font-bold mt-1 ${isToday ? 'text-blue-600 dark:text-blue-400' : 'text-gray-900 dark:text-gray-100'}`}>
+                            {dayNum}
+                          </div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{monthName}</div>
+                        </div>
+                        
+                        {/* Events List */}
+                        <div className="p-2 space-y-2 min-h-[400px] max-h-[600px] overflow-y-auto">
+                          {dayEvents.length === 0 ? (
+                            <div className="text-center py-8 text-gray-400 dark:text-gray-500 text-sm">
+                              No events
+                            </div>
+                          ) : (
+                            dayEvents
+                              .sort((a, b) => {
+                                if (a.allDay && !b.allDay) return -1
+                                if (!a.allDay && b.allDay) return 1
+                                return a.start.getTime() - b.start.getTime()
+                              })
+                              .map(event => (
+                                <button
+                                  key={event.id}
+                                  onClick={() => setSelectedEvent(event)}
+                                  className={`w-full text-left p-2 rounded-lg border border-gray-200 dark:border-gray-700 ${getEventColor(event.color)} text-white text-xs hover:opacity-90 transition-opacity touch-manipulation`}
+                                >
+                                  {event.allDay ? (
+                                    <div className="font-semibold truncate">{event.title}</div>
+                                  ) : (
+                                    <>
+                                      <div className="font-medium">{event.start.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</div>
+                                      <div className="font-semibold truncate mt-0.5">{event.title}</div>
+                                    </>
+                                  )}
+                                  {event.description && (
+                                    <div className="truncate mt-1 opacity-90 text-xs">{event.description}</div>
+                                  )}
+                                </button>
+                              ))
+                          )}
+                          
+                          {/* Add event button */}
+                          <button
+                            onClick={() => {
+                              setSelectedDate(dayDate)
+                              setShowCreateModal(true)
+                            }}
+                            className="w-full p-2 text-xs text-gray-500 dark:text-gray-400 border border-dashed border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors touch-manipulation flex items-center justify-center gap-1"
+                          >
+                            <Plus className="h-3 w-3" />
+                            Add event
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })
+                })()}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Week View with Time Slots - Desktop only */}
+        {view === 'week' && !isMobile && (
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
             {/* Week Navigation */}
-            <div className="flex items-center justify-between p-4 border-b">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => {
@@ -1276,13 +1461,13 @@ export default function EnhancedCalendarPage() {
                     newDate.setDate(currentDate.getDate() - 7)
                     setCurrentDate(newDate)
                   }}
-                  className="p-2 hover:bg-gray-100 rounded-lg"
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg touch-manipulation"
                 >
-                  <ChevronLeft className="h-5 w-5" />
+                  <ChevronLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                 </button>
                 <button
                   onClick={() => setCurrentDate(new Date())}
-                  className="px-3 py-1 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg"
+                  className="px-3 py-1 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg touch-manipulation"
                 >
                   Today
                 </button>
@@ -1292,12 +1477,12 @@ export default function EnhancedCalendarPage() {
                     newDate.setDate(currentDate.getDate() + 7)
                     setCurrentDate(newDate)
                   }}
-                  className="p-2 hover:bg-gray-100 rounded-lg"
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg touch-manipulation"
                 >
-                  <ChevronRight className="h-5 w-5" />
+                  <ChevronRight className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                 </button>
               </div>
-              <h2 className="text-lg font-semibold">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                 {currentDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
               </h2>
             </div>
@@ -1306,8 +1491,8 @@ export default function EnhancedCalendarPage() {
             <div className="overflow-x-auto">
               <div className="inline-block min-w-full">
                 {/* Day Headers */}
-                <div className="grid grid-cols-[80px_repeat(7,1fr)] border-b">
-                  <div className="p-3 text-center text-sm font-medium text-gray-500"></div>
+                <div className="grid grid-cols-[80px_repeat(7,1fr)] border-b border-gray-200 dark:border-gray-700">
+                  <div className="p-3 text-center text-sm font-medium text-gray-500 dark:text-gray-400"></div>
                   {(() => {
                     // Calculate start of week using milliseconds to avoid timezone issues
                     const now = new Date(currentDate)
@@ -1322,9 +1507,9 @@ export default function EnhancedCalendarPage() {
                       const isToday = columnDate.toDateString() === new Date().toDateString()
                       
                       return (
-                        <div key={dayIndex} className={`p-3 text-center border-l ${isToday ? 'bg-blue-50' : ''}`}>
-                          <div className="text-xs text-gray-500">{['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][dayIndex]}</div>
-                          <div className={`text-lg font-semibold ${isToday ? 'text-blue-600' : ''}`}>
+                        <div key={dayIndex} className={`p-3 text-center border-l border-gray-200 dark:border-gray-700 ${isToday ? 'bg-blue-50 dark:bg-blue-900/20' : 'bg-white dark:bg-gray-800'}`}>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">{['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][dayIndex]}</div>
+                          <div className={`text-lg font-semibold ${isToday ? 'text-blue-600 dark:text-blue-400' : 'text-gray-900 dark:text-gray-100'}`}>
                             {columnDate.getDate()}
                           </div>
                         </div>
@@ -1339,8 +1524,8 @@ export default function EnhancedCalendarPage() {
                     const timeLabel = `${hour > 12 ? hour - 12 : hour} ${hour >= 12 ? 'PM' : 'AM'}`
                     
                     return (
-                      <div key={hour} className="grid grid-cols-[80px_repeat(7,1fr)] border-b min-h-[60px]">
-                        <div className="p-2 text-right text-sm text-gray-500 font-medium border-r">
+                      <div key={hour} className="grid grid-cols-[80px_repeat(7,1fr)] border-b border-gray-200 dark:border-gray-700 min-h-[60px]">
+                        <div className="p-2 text-right text-sm text-gray-500 dark:text-gray-400 font-medium border-r border-gray-200 dark:border-gray-700">
                           {timeLabel}
                         </div>
                         {(() => {
@@ -1396,7 +1581,7 @@ export default function EnhancedCalendarPage() {
                             return (
                               <div 
                                 key={dayIndex} 
-                                className={`p-1 border-l relative overflow-hidden cursor-pointer hover:bg-blue-50 transition-colors ${isToday ? 'bg-blue-50/30' : ''}`}
+                                className={`p-1 border-l border-gray-200 dark:border-gray-700 relative overflow-hidden cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors ${isToday ? 'bg-blue-50/30 dark:bg-blue-900/10' : 'bg-white dark:bg-gray-800'}`}
                                 onClick={() => {
                                   // Create date with the selected hour
                                   const meetingDate = new Date(columnDate)
@@ -1432,42 +1617,42 @@ export default function EnhancedCalendarPage() {
           </div>
         )}
 
-        {/* Month View */}
-        {view === 'month' && (
+        {/* Month View - Hidden on mobile */}
+        {view === 'month' && !isMobile && (
           <>
         {/* Calendar Navigation */}
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 sm:p-6">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-2">
               <button
                 onClick={() => navigateMonth('prev')}
-                className="p-2 hover:bg-gray-100 rounded-lg"
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg touch-manipulation"
               >
-                <ChevronLeft className="h-5 w-5" />
+                <ChevronLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
               </button>
               <button
                 onClick={() => setCurrentDate(new Date())}
-                className="px-3 py-1 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-lg"
+                className="px-3 py-1 text-sm font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg touch-manipulation"
               >
                 Today
               </button>
             </div>
-            <h2 className="text-xl font-semibold text-gray-900">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
               {currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
             </h2>
             <button
               onClick={() => navigateMonth('next')}
-              className="p-2 hover:bg-gray-100 rounded-lg"
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg touch-manipulation"
             >
-              <ChevronRight className="h-5 w-5" />
+              <ChevronRight className="h-5 w-5 text-gray-600 dark:text-gray-400" />
             </button>
           </div>
 
           {/* Calendar Grid */}
-          <div className="grid grid-cols-7 gap-px bg-gray-200">
+          <div className="grid grid-cols-7 gap-px bg-gray-200 dark:bg-gray-700">
             {/* Week day headers */}
             {weekDays.map(day => (
-              <div key={day} className="bg-gray-50 p-3 text-center text-sm font-medium text-gray-700">
+              <div key={day} className="bg-gray-50 dark:bg-gray-800 p-3 text-center text-sm font-medium text-gray-700 dark:text-gray-300">
                 {day}
               </div>
             ))}
@@ -1476,9 +1661,9 @@ export default function EnhancedCalendarPage() {
             {days.map((day, index) => (
               <div
                 key={index}
-                className={`bg-white p-2 min-h-[120px] ${
-                  !day.isCurrentMonth ? 'text-gray-400' : ''
-                } ${day.isToday ? 'bg-blue-50' : ''} cursor-pointer hover:bg-gray-50 transition-colors`}
+                className={`bg-white dark:bg-gray-800 p-2 min-h-[120px] ${
+                  !day.isCurrentMonth ? 'text-gray-400 dark:text-gray-600' : 'text-gray-900 dark:text-gray-100'
+                } ${day.isToday ? 'bg-blue-50 dark:bg-blue-900/20' : ''} cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors`}
                 onClick={() => {
                   if (day.isCurrentMonth) {
                     setSelectedDate(day.date)
@@ -1487,7 +1672,7 @@ export default function EnhancedCalendarPage() {
                 }}
               >
                 <div className={`text-sm font-medium mb-1 ${
-                  day.isToday ? 'text-blue-600' : ''
+                  day.isToday ? 'text-blue-600 dark:text-blue-400' : ''
                 }`}>
                   {day.date.getDate()}
                 </div>
@@ -1511,7 +1696,7 @@ export default function EnhancedCalendarPage() {
                     </div>
                   ))}
                   {day.events.length > 3 && (
-                    <div className="text-xs text-gray-500">
+                    <div className="text-xs text-gray-500 dark:text-gray-400">
                       +{day.events.length - 3} more
                     </div>
                   )}
@@ -1522,8 +1707,8 @@ export default function EnhancedCalendarPage() {
         </div>
 
         {/* Upcoming Events */}
-        <div className="mt-8">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Upcoming Events</h2>
+        <div className="mt-6 sm:mt-8">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">Upcoming Events</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredEvents
               .filter(event => event.start >= new Date())
@@ -1533,18 +1718,18 @@ export default function EnhancedCalendarPage() {
                 <div
                   key={event.id}
                   onClick={() => setSelectedEvent(event)}
-                  className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
+                  className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer touch-manipulation"
                 >
                   <div className="flex items-center gap-3 mb-2">
                     <div className={`w-3 h-3 rounded-full ${getEventColor(event.color)}`}></div>
-                    <h3 className="font-medium text-gray-900 truncate">{event.title}</h3>
+                    <h3 className="font-medium text-gray-900 dark:text-gray-100 truncate">{event.title}</h3>
                   </div>
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
                     <Calendar className="h-4 w-4" />
                     <span>{event.start.toLocaleDateString()}</span>
                   </div>
                   {!event.allDay && (
-                    <div className="flex items-center gap-2 text-sm text-gray-600 mt-1">
+                    <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 mt-1">
                       <Clock className="h-4 w-4" />
                       <span>{event.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                     </div>
