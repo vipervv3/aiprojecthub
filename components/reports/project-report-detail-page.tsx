@@ -109,47 +109,47 @@ export default function ProjectReportDetailPage() {
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'urgent': return 'text-red-600 bg-red-50'
-      case 'high': return 'text-orange-600 bg-orange-50'
-      case 'medium': return 'text-yellow-600 bg-yellow-50'
-      case 'low': return 'text-gray-600 bg-gray-50'
-      default: return 'text-gray-600 bg-gray-50'
+      case 'urgent': return 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20'
+      case 'high': return 'text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20'
+      case 'medium': return 'text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/20'
+      case 'low': return 'text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-700'
+      default: return 'text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-700'
     }
   }
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'completed': return 'text-green-600 bg-green-50'
-      case 'in_progress': return 'text-blue-600 bg-blue-50'
-      case 'todo': return 'text-gray-600 bg-gray-50'
-      default: return 'text-gray-600 bg-gray-50'
+      case 'completed': return 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20'
+      case 'in_progress': return 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
+      case 'todo': return 'text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-700'
+      default: return 'text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-700'
     }
   }
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'active': return 'bg-green-100 text-green-800'
-      case 'planning': return 'bg-blue-100 text-blue-800'
-      case 'completed': return 'bg-gray-100 text-gray-800'
-      case 'on_hold': return 'bg-yellow-100 text-yellow-800'
-      default: return 'bg-gray-100 text-gray-800'
+      case 'active': return 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300'
+      case 'planning': return 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300'
+      case 'completed': return 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300'
+      case 'on_hold': return 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300'
+      default: return 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300'
     }
   }
 
   if (loading || loadingData) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-400"></div>
       </div>
     )
   }
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">Please log in</h1>
-          <p className="text-gray-600">You need to be logged in to access project reports.</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">Please log in</h1>
+          <p className="text-gray-600 dark:text-gray-400">You need to be logged in to access project reports.</p>
         </div>
       </div>
     )
@@ -157,13 +157,13 @@ export default function ProjectReportDetailPage() {
 
   if (!project) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">Project not found</h1>
-          <p className="text-gray-600 mb-6">The project you're looking for doesn't exist.</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">Project not found</h1>
+          <p className="text-gray-600 dark:text-gray-400 mb-6">The project you're looking for doesn't exist.</p>
           <button
             onClick={() => router.push('/reports')}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+            className="bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-600 text-white px-4 py-2 rounded-lg touch-manipulation"
           >
             Back to Reports
           </button>
@@ -173,10 +173,10 @@ export default function ProjectReportDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="flex flex-col lg:flex-row h-screen">
+    <div className="min-h-full bg-gray-50 dark:bg-gray-900 -m-3 sm:-m-4 lg:-m-6 xl:-m-8">
+      <div className="flex flex-col lg:flex-row min-h-[calc(100vh-4rem)]">
         {/* Left Sidebar - Project Info */}
-        <div className="w-full lg:w-80 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
+        <div className="w-full lg:w-80 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col lg:sticky lg:top-0 lg:h-[calc(100vh-4rem)]">
           {/* Back Button */}
           <div className="p-3 sm:p-4 border-b border-gray-200 dark:border-gray-700">
             <button
@@ -275,7 +275,7 @@ export default function ProjectReportDetailPage() {
                         cx="64"
                         cy="64"
                         r="56"
-                        className="sm:hidden"
+                        className="sm:hidden dark:hidden"
                         stroke="#E5E7EB"
                         strokeWidth="10"
                         fill="none"
@@ -284,8 +284,38 @@ export default function ProjectReportDetailPage() {
                         cx="64"
                         cy="64"
                         r="56"
-                        className="sm:hidden"
+                        className="sm:hidden dark:hidden"
+                        stroke="#E5E7EB"
+                        strokeWidth="10"
+                        fill="none"
+                      />
+                      <circle
+                        cx="64"
+                        cy="64"
+                        r="56"
+                        className="hidden dark:block sm:hidden"
+                        stroke="#374151"
+                        strokeWidth="10"
+                        fill="none"
+                      />
+                      <circle
+                        cx="64"
+                        cy="64"
+                        r="56"
+                        className="sm:hidden dark:hidden"
                         stroke="#3B82F6"
+                        strokeWidth="10"
+                        fill="none"
+                        strokeDasharray={`${2 * Math.PI * 56}`}
+                        strokeDashoffset={`${2 * Math.PI * 56 * (1 - overallProgress / 100)}`}
+                        strokeLinecap="round"
+                      />
+                      <circle
+                        cx="64"
+                        cy="64"
+                        r="56"
+                        className="hidden dark:block sm:hidden"
+                        stroke="#60A5FA"
                         strokeWidth="10"
                         fill="none"
                         strokeDasharray={`${2 * Math.PI * 56}`}
@@ -296,7 +326,7 @@ export default function ProjectReportDetailPage() {
                         cx="80"
                         cy="80"
                         r="70"
-                        className="hidden sm:block"
+                        className="hidden sm:block dark:hidden"
                         stroke="#E5E7EB"
                         strokeWidth="12"
                         fill="none"
@@ -305,8 +335,29 @@ export default function ProjectReportDetailPage() {
                         cx="80"
                         cy="80"
                         r="70"
-                        className="hidden sm:block"
+                        className="hidden sm:block dark:block"
+                        stroke="#374151"
+                        strokeWidth="12"
+                        fill="none"
+                      />
+                      <circle
+                        cx="80"
+                        cy="80"
+                        r="70"
+                        className="hidden sm:block dark:hidden"
                         stroke="#3B82F6"
+                        strokeWidth="12"
+                        fill="none"
+                        strokeDasharray={`${2 * Math.PI * 70}`}
+                        strokeDashoffset={`${2 * Math.PI * 70 * (1 - overallProgress / 100)}`}
+                        strokeLinecap="round"
+                      />
+                      <circle
+                        cx="80"
+                        cy="80"
+                        r="70"
+                        className="hidden sm:block dark:block"
+                        stroke="#60A5FA"
                         strokeWidth="12"
                         fill="none"
                         strokeDasharray={`${2 * Math.PI * 70}`}
@@ -332,7 +383,7 @@ export default function ProjectReportDetailPage() {
                         cx="48"
                         cy="48"
                         r="42"
-                        className="sm:hidden"
+                        className="sm:hidden dark:hidden"
                         stroke="#E5E7EB"
                         strokeWidth="8"
                         fill="none"
@@ -341,8 +392,29 @@ export default function ProjectReportDetailPage() {
                         cx="48"
                         cy="48"
                         r="42"
-                        className="sm:hidden"
+                        className="hidden dark:block sm:hidden"
+                        stroke="#374151"
+                        strokeWidth="8"
+                        fill="none"
+                      />
+                      <circle
+                        cx="48"
+                        cy="48"
+                        r="42"
+                        className="sm:hidden dark:hidden"
                         stroke="#10B981"
+                        strokeWidth="8"
+                        fill="none"
+                        strokeDasharray={`${2 * Math.PI * 42}`}
+                        strokeDashoffset={`${2 * Math.PI * 42 * (1 - milestoneProgress / 100)}`}
+                        strokeLinecap="round"
+                      />
+                      <circle
+                        cx="48"
+                        cy="48"
+                        r="42"
+                        className="hidden dark:block sm:hidden"
+                        stroke="#34D399"
                         strokeWidth="8"
                         fill="none"
                         strokeDasharray={`${2 * Math.PI * 42}`}
@@ -353,7 +425,7 @@ export default function ProjectReportDetailPage() {
                         cx="64"
                         cy="64"
                         r="56"
-                        className="hidden sm:block"
+                        className="hidden sm:block dark:hidden"
                         stroke="#E5E7EB"
                         strokeWidth="10"
                         fill="none"
@@ -362,8 +434,29 @@ export default function ProjectReportDetailPage() {
                         cx="64"
                         cy="64"
                         r="56"
-                        className="hidden sm:block"
+                        className="hidden sm:block dark:block"
+                        stroke="#374151"
+                        strokeWidth="10"
+                        fill="none"
+                      />
+                      <circle
+                        cx="64"
+                        cy="64"
+                        r="56"
+                        className="hidden sm:block dark:hidden"
                         stroke="#10B981"
+                        strokeWidth="10"
+                        fill="none"
+                        strokeDasharray={`${2 * Math.PI * 56}`}
+                        strokeDashoffset={`${2 * Math.PI * 56 * (1 - milestoneProgress / 100)}`}
+                        strokeLinecap="round"
+                      />
+                      <circle
+                        cx="64"
+                        cy="64"
+                        r="56"
+                        className="hidden sm:block dark:block"
+                        stroke="#34D399"
                         strokeWidth="10"
                         fill="none"
                         strokeDasharray={`${2 * Math.PI * 56}`}
@@ -387,54 +480,54 @@ export default function ProjectReportDetailPage() {
                 <h3 className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3 sm:mb-4">Task Priority</h3>
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-700">Urgent</span>
+                    <span className="text-xs sm:text-sm text-gray-700 dark:text-gray-300">Urgent</span>
                     <div className="flex items-center gap-3 flex-1 ml-4">
-                      <div className="flex-1 bg-gray-200 rounded-full h-2">
+                      <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                         <div 
-                          className="bg-red-500 h-2 rounded-full"
+                          className="bg-red-500 dark:bg-red-600 h-2 rounded-full"
                           style={{ width: totalTasks > 0 ? `${(urgentTasks / totalTasks) * 100}%` : '0%' }}
                         ></div>
                       </div>
-                      <span className="text-sm font-medium text-gray-900 w-8 text-right">{urgentTasks}</span>
+                      <span className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100 w-8 text-right">{urgentTasks}</span>
                     </div>
                   </div>
 
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-700">High</span>
+                    <span className="text-xs sm:text-sm text-gray-700 dark:text-gray-300">High</span>
                     <div className="flex items-center gap-3 flex-1 ml-4">
-                      <div className="flex-1 bg-gray-200 rounded-full h-2">
+                      <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                         <div 
-                          className="bg-orange-500 h-2 rounded-full"
+                          className="bg-orange-500 dark:bg-orange-600 h-2 rounded-full"
                           style={{ width: totalTasks > 0 ? `${(highTasks / totalTasks) * 100}%` : '0%' }}
                         ></div>
                       </div>
-                      <span className="text-sm font-medium text-gray-900 w-8 text-right">{highTasks}</span>
+                      <span className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100 w-8 text-right">{highTasks}</span>
                     </div>
                   </div>
 
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-700">Medium</span>
+                    <span className="text-xs sm:text-sm text-gray-700 dark:text-gray-300">Medium</span>
                     <div className="flex items-center gap-3 flex-1 ml-4">
-                      <div className="flex-1 bg-gray-200 rounded-full h-2">
+                      <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                         <div 
-                          className="bg-yellow-500 h-2 rounded-full"
+                          className="bg-yellow-500 dark:bg-yellow-600 h-2 rounded-full"
                           style={{ width: totalTasks > 0 ? `${(mediumTasks / totalTasks) * 100}%` : '0%' }}
                         ></div>
                       </div>
-                      <span className="text-sm font-medium text-gray-900 w-8 text-right">{mediumTasks}</span>
+                      <span className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100 w-8 text-right">{mediumTasks}</span>
                     </div>
                   </div>
 
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-700">Low</span>
+                    <span className="text-xs sm:text-sm text-gray-700 dark:text-gray-300">Low</span>
                     <div className="flex items-center gap-3 flex-1 ml-4">
-                      <div className="flex-1 bg-gray-200 rounded-full h-2">
+                      <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                         <div 
-                          className="bg-gray-400 h-2 rounded-full"
+                          className="bg-gray-400 dark:bg-gray-500 h-2 rounded-full"
                           style={{ width: totalTasks > 0 ? `${(lowTasks / totalTasks) * 100}%` : '0%' }}
                         ></div>
                       </div>
-                      <span className="text-sm font-medium text-gray-900 w-8 text-right">{lowTasks}</span>
+                      <span className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100 w-8 text-right">{lowTasks}</span>
                     </div>
                   </div>
                 </div>
