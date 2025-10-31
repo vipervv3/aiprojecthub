@@ -232,20 +232,48 @@ function parseICSDate(dateString: string, fullLine: string): Date {
     return new Date(Date.UTC(year, month, day, hour, minute, second))
   }
   
-  // If it has TZID, we need to handle timezone conversion
-  // For now, treat common timezones (America/New_York, Europe/London, etc.) as UTC offset
-  // Most modern calendar apps (Google, Outlook) export dates in UTC anyway
+  // CRITICAL FIX: The events are showing 4-5 hours early, which suggests Outlook is
+  // exporting times in local timezone (EST/EDT = UTC-4/UTC-5), but we're parsing as UTC.
+  //
+  // When Outlook exports "12:00 PM EST", it becomes "20251030T120000" (no Z, no TZID).
+  // If we parse this as UTC, it becomes 12:00 UTC which displays as 7:00 AM EST (wrong!).
+  //
+  // SOLUTION: When there's no 'Z', assume the time is in EST/EDT (UTC-4 or UTC-5).
+  // Since EST/EDT offset varies by DST, we'll use EDT (UTC-4) as a safe default.
+  // We'll add 4 hours to convert to UTC: 12:00 PM EDT → 4:00 PM UTC → displays as 12:00 PM EST ✓
+  //
+  // Note: This is a workaround. Proper solution requires timezone library or TZID parsing.
   if (hasTzid) {
     const tzid = tzidMatch?.[1] || ''
-    console.log(`⚠️  Event has timezone: ${tzid} - treating as UTC for now (most calendar exports are UTC)`)
-    // Assume UTC - most calendar exports use UTC regardless of TZID
-    // This prevents double conversion issues
-    return new Date(Date.UTC(year, month, day, hour, minute, second))
+    // Check for common timezone identifiers
+    const isEST = /Eastern|America\/New_York|EST|EDT/i.test(tzid)
+    const isCST = /Central|America\/Chicago|CST|CDT/i.test(tzid)
+    const isPST = /Pacific|America\/Los_Angeles|PST|PDT/i.test(tzid)
+    
+    if (isEST) {
+      // EST is UTC-5, EDT is UTC-4. Use UTC-4 (EDT) as default (most of the year)
+      console.log(`📍 Event timezone: ${tzid} (Eastern) - adding 4 hours to convert EDT→UTC`)
+      return new Date(Date.UTC(year, month, day, hour + 4, minute, second))
+    } else if (isCST) {
+      // CST is UTC-6, CDT is UTC-5. Use UTC-5 (CDT) as default
+      console.log(`📍 Event timezone: ${tzid} (Central) - adding 5 hours to convert CDT→UTC`)
+      return new Date(Date.UTC(year, month, day, hour + 5, minute, second))
+    } else if (isPST) {
+      // PST is UTC-8, PDT is UTC-7. Use UTC-7 (PDT) as default
+      console.log(`📍 Event timezone: ${tzid} (Pacific) - adding 7 hours to convert PDT→UTC`)
+      return new Date(Date.UTC(year, month, day, hour + 7, minute, second))
+    } else {
+      // Unknown timezone - assume UTC (default behavior)
+      console.log(`⚠️  Event has unknown timezone: ${tzid} - parsing as UTC`)
+      return new Date(Date.UTC(year, month, day, hour, minute, second))
+    }
   }
   
-  // No timezone specified - assume UTC (most calendar exports are in UTC)
-  // This is safer than assuming local time, as it prevents timezone shift issues
-  return new Date(Date.UTC(year, month, day, hour, minute, second))
+  // No 'Z' and no TZID - Outlook often exports these in user's local timezone (typically EST/EDT)
+  // Apply EDT offset (UTC-4) to convert to UTC
+  // This fixes the 4-hour shift we're seeing
+  console.log(`📍 Event time without timezone/Z - assuming EDT (UTC-4) and adding 4 hours to convert to UTC`)
+  return new Date(Date.UTC(year, month, day, hour + 4, minute, second))
 }
 
 /**
