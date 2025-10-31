@@ -67,24 +67,24 @@ export default function CreateProjectModal({ isOpen, onClose, onSubmit }: Create
         />
 
         {/* Modal */}
-        <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+        <div className="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full w-full max-h-[90vh] overflow-y-auto">
           <form onSubmit={handleSubmit}>
             {/* Header */}
-            <div className="bg-white px-6 pt-6 pb-4">
+            <div className="bg-white dark:bg-gray-800 px-4 sm:px-6 pt-4 sm:pt-6 pb-4 border-b border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-gray-900">Create New Project</h3>
+                <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100">Create New Project</h3>
                 <button
                   type="button"
                   onClick={onClose}
-                  className="text-gray-400 hover:text-gray-600"
+                  className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 touch-manipulation p-1"
                 >
-                  <X className="h-6 w-6" />
+                  <X className="h-5 w-5 sm:h-6 sm:w-6" />
                 </button>
               </div>
             </div>
 
             {/* Body */}
-            <div className="bg-white px-6 py-4 space-y-4">
+            <div className="bg-white dark:bg-gray-800 px-4 sm:px-6 py-4 space-y-4">
               {/* Project Name */}
               <div>
                 <label htmlFor="name" className="label">
@@ -119,7 +119,7 @@ export default function CreateProjectModal({ isOpen, onClose, onSubmit }: Create
               </div>
 
               {/* Dates */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="start_date" className="label">
                     <Calendar className="inline h-4 w-4 mr-1" />
@@ -191,18 +191,18 @@ export default function CreateProjectModal({ isOpen, onClose, onSubmit }: Create
             </div>
 
             {/* Footer */}
-            <div className="bg-gray-50 px-6 py-4 flex justify-end space-x-3">
+            <div className="bg-gray-50 dark:bg-gray-700 px-4 sm:px-6 py-4 flex flex-col sm:flex-row justify-end gap-3 border-t border-gray-200 dark:border-gray-600">
               <button
                 type="button"
                 onClick={onClose}
-                className="btn btn-outline"
+                className="btn btn-outline touch-manipulation w-full sm:w-auto order-2 sm:order-1"
                 disabled={loading}
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="btn btn-primary"
+                className="btn btn-primary touch-manipulation w-full sm:w-auto order-1 sm:order-2"
                 disabled={loading}
               >
                 {loading ? (

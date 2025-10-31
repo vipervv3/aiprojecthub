@@ -516,26 +516,26 @@ export default function EnhancedRecordingModal({
         />
 
         {/* Modal */}
-        <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+        <div className="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full w-full max-h-[90vh] overflow-y-auto">
           {/* Header */}
-          <div className="bg-white px-6 pt-6 pb-4">
+          <div className="bg-white dark:bg-gray-800 px-4 sm:px-6 pt-4 sm:pt-6 pb-4 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900">
+              <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100">
                 {processingStep ? 'Processing Recording' : 'Record Meeting'}
               </h3>
               <button
                 type="button"
                 onClick={handleClose}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 touch-manipulation p-1"
                 disabled={uploading}
               >
-                <X className="h-6 w-6" />
+                <X className="h-5 w-5 sm:h-6 sm:w-6" />
               </button>
             </div>
           </div>
 
           {/* Body */}
-          <div className="bg-white px-6 py-4">
+          <div className="bg-white dark:bg-gray-800 px-4 sm:px-6 py-4">
             {processingStep ? (
               /* Processing View */
               <div className="text-center py-8">
@@ -611,12 +611,12 @@ export default function EnhancedRecordingModal({
                 </div>
 
                 {/* Recording Controls */}
-                <div className="flex justify-center space-x-4 mb-6">
+                <div className="flex flex-col sm:flex-row justify-center gap-3 sm:gap-4 mb-6">
                   {!isRecording ? (
                     <button
                       onClick={startRecording}
                       disabled={!selectedProjectId}
-                      className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2"
+                      className="bg-blue-600 dark:bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed flex items-center justify-center gap-2 touch-manipulation w-full sm:w-auto"
                     >
                       <Mic className="h-4 w-4" />
                       Start Recording
@@ -625,7 +625,7 @@ export default function EnhancedRecordingModal({
                     <>
                       <button
                         onClick={pauseRecording}
-                        className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 flex items-center gap-2"
+                        className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 flex items-center justify-center gap-2 touch-manipulation w-full sm:w-auto"
                       >
                         {isPaused ? (
                           <><Play className="h-4 w-4" /> Resume</>
@@ -636,7 +636,7 @@ export default function EnhancedRecordingModal({
                       
                       <button
                         onClick={stopRecording}
-                        className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 flex items-center gap-2"
+                        className="bg-red-600 dark:bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-700 dark:hover:bg-red-600 flex items-center justify-center gap-2 touch-manipulation w-full sm:w-auto"
                       >
                         <Square className="h-4 w-4" />
                         Stop Recording
@@ -708,17 +708,17 @@ export default function EnhancedRecordingModal({
 
           {/* Footer */}
           {!processingStep && (
-            <div className="bg-gray-50 px-6 py-4 flex justify-end space-x-3">
+            <div className="bg-gray-50 dark:bg-gray-700 px-4 sm:px-6 py-4 flex flex-col sm:flex-row justify-end gap-3 border-t border-gray-200 dark:border-gray-600">
               <button
                 onClick={handleClose}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100"
+                className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 touch-manipulation w-full sm:w-auto order-2 sm:order-1"
                 disabled={uploading}
               >
                 Cancel
               </button>
               <button
                 onClick={handleUpload}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2"
+                className="bg-blue-600 dark:bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed flex items-center justify-center gap-2 touch-manipulation w-full sm:w-auto order-1 sm:order-2"
                 disabled={!audioBlob || (!autoGenerateTitle && !title.trim()) || !selectedProjectId || uploading}
               >
                 {uploading ? (

@@ -173,23 +173,23 @@ export default function RecordingModal({
         />
 
         {/* Modal */}
-        <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+        <div className="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full w-full max-h-[90vh] overflow-y-auto">
           {/* Header */}
-          <div className="bg-white px-6 pt-6 pb-4">
+          <div className="bg-white dark:bg-gray-800 px-4 sm:px-6 pt-4 sm:pt-6 pb-4 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900">Voice Recording</h3>
+              <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100">Voice Recording</h3>
               <button
                 type="button"
                 onClick={handleClose}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 touch-manipulation p-1"
               >
-                <X className="h-6 w-6" />
+                <X className="h-5 w-5 sm:h-6 sm:w-6" />
               </button>
             </div>
           </div>
 
           {/* Body */}
-          <div className="bg-white px-6 py-4">
+          <div className="bg-white dark:bg-gray-800 px-4 sm:px-6 py-4">
             {/* Recording Status */}
             <div className="text-center mb-6">
               <div className="w-24 h-24 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -210,11 +210,11 @@ export default function RecordingModal({
             </div>
 
             {/* Recording Controls */}
-            <div className="flex justify-center space-x-4 mb-6">
+            <div className="flex flex-col sm:flex-row justify-center gap-3 sm:gap-4 mb-6">
               {!isRecording ? (
                 <button
                   onClick={startRecording}
-                  className="btn btn-primary flex items-center"
+                  className="btn btn-primary flex items-center justify-center touch-manipulation w-full sm:w-auto"
                 >
                   <Mic className="h-4 w-4 mr-2" />
                   Start Recording
@@ -223,7 +223,7 @@ export default function RecordingModal({
                 <>
                   <button
                     onClick={pauseRecording}
-                    className="btn btn-outline flex items-center"
+                    className="btn btn-outline flex items-center justify-center touch-manipulation w-full sm:w-auto"
                   >
                     {isPaused ? (
                       <Play className="h-4 w-4 mr-2" />
@@ -235,7 +235,7 @@ export default function RecordingModal({
                   
                   <button
                     onClick={stopRecording}
-                    className="btn btn-destructive flex items-center"
+                    className="btn btn-destructive flex items-center justify-center touch-manipulation w-full sm:w-auto"
                   >
                     <Square className="h-4 w-4 mr-2" />
                     Stop Recording
@@ -273,17 +273,17 @@ export default function RecordingModal({
           </div>
 
           {/* Footer */}
-          <div className="bg-gray-50 px-6 py-4 flex justify-end space-x-3">
+          <div className="bg-gray-50 dark:bg-gray-700 px-4 sm:px-6 py-4 flex flex-col sm:flex-row justify-end gap-3 border-t border-gray-200 dark:border-gray-600">
             <button
               onClick={handleClose}
-              className="btn btn-outline"
+              className="btn btn-outline touch-manipulation w-full sm:w-auto order-2 sm:order-1"
               disabled={uploading}
             >
               Cancel
             </button>
             <button
               onClick={handleUpload}
-              className="btn btn-primary flex items-center"
+              className="btn btn-primary flex items-center justify-center touch-manipulation w-full sm:w-auto order-1 sm:order-2"
               disabled={!audioBlob || !title.trim() || uploading}
             >
               {uploading ? (
