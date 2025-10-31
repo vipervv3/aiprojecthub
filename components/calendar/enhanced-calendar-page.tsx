@@ -794,14 +794,9 @@ export default function EnhancedCalendarPage() {
                   }
                 }
                 
-                // Debug timezone issues - log if times seem off
-                const storedTime = new Date(syncedEvent.start_time)
-                const localTime = new Date() // Current time for comparison
-                const timeDiff = Math.abs(storedTime.getTime() - localTime.getTime())
-                // If the stored time is more than 24 hours different from now, log it for debugging
-                if (timeDiff > 24 * 60 * 60 * 1000) {
-                  console.log(`📅 Synced event "${syncedEvent.title}": stored=${syncedEvent.start_time}, parsed=${startDate.toISOString()}, local=${startDate.toLocaleString()}`)
-                }
+              // Debug timezone issues - log synced events to verify times
+              console.log(`📅 Synced event "${syncedEvent.title}": stored UTC=${syncedEvent.start_time}, parsed local=${startDate.toLocaleString()}, hour=${startDate.getHours()}`)
+              
               } catch (dateError) {
                 console.error(`❌ Error parsing dates for event: ${syncedEvent.title}`, dateError)
                 return // Skip events with date parsing errors
@@ -1382,13 +1377,16 @@ export default function EnhancedCalendarPage() {
                               // Only show event if it starts on this specific day and in this specific hour
                               const isMatch = eventDay === columnDay && eventHour === hour
                               
-                              // Debug logging for timezone issues (only for synced events in wrong slots)
-                              if (event.id?.startsWith('synced-') && isMatch) {
+                              // Debug logging for all synced events to diagnose timezone issues
+                              if (event.id?.startsWith('synced-')) {
                                 const eventISO = eventDate.toISOString()
                                 const eventLocal = eventDate.toLocaleString()
-                                const expectedHour = hour
-                                if (eventHour !== expectedHour) {
-                                  console.warn(`⚠️ Timezone mismatch for "${event.title}": ISO=${eventISO}, Local=${eventLocal}, Expected hour=${expectedHour}, Got hour=${eventHour}`)
+                                const eventLocalHour = eventDate.getHours()
+                                if (isMatch) {
+                                  console.log(`✅ Synced event "${event.title}" in correct slot: hour=${eventLocalHour}, slot=${hour}, time=${eventLocal}`)
+                                } else if (eventDay === columnDay && Math.abs(eventLocalHour - hour) <= 12) {
+                                  // Show if it's on the same day but wrong hour (likely timezone issue)
+                                  console.warn(`⚠️ Synced event "${event.title}" on correct day but wrong hour: hour=${eventLocalHour}, slot=${hour}, time=${eventLocal}, UTC=${eventISO}`)
                                 }
                               }
                               

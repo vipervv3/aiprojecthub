@@ -232,17 +232,20 @@ function parseICSDate(dateString: string, fullLine: string): Date {
     return new Date(Date.UTC(year, month, day, hour, minute, second))
   }
   
-  // If it has TZID, treat it as the specified timezone
-  // For now, we'll treat it as local time since full timezone conversion requires a library
-  // Most calendar apps export in UTC anyway, so this handles the common case
+  // If it has TZID, we need to handle timezone conversion
+  // For now, treat common timezones (America/New_York, Europe/London, etc.) as UTC offset
+  // Most modern calendar apps (Google, Outlook) export dates in UTC anyway
   if (hasTzid) {
-    console.log(`⚠️  Event has timezone: ${tzidMatch?.[1]} - treating as local time`)
-    // Create date in local time
-    return new Date(year, month, day, hour, minute, second)
+    const tzid = tzidMatch?.[1] || ''
+    console.log(`⚠️  Event has timezone: ${tzid} - treating as UTC for now (most calendar exports are UTC)`)
+    // Assume UTC - most calendar exports use UTC regardless of TZID
+    // This prevents double conversion issues
+    return new Date(Date.UTC(year, month, day, hour, minute, second))
   }
   
-  // No timezone specified - assume local time
-  return new Date(year, month, day, hour, minute, second)
+  // No timezone specified - assume UTC (most calendar exports are in UTC)
+  // This is safer than assuming local time, as it prevents timezone shift issues
+  return new Date(Date.UTC(year, month, day, hour, minute, second))
 }
 
 /**
