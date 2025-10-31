@@ -631,10 +631,23 @@ Based on their current tasks and progress, provide ${period === 'morning' ? 'a m
       for (const user of users) {
         try {
           // Check if user has email notifications enabled
+          // Default to true if not set (users should receive notifications by default)
           const prefs = user.notification_preferences || {}
-          if (prefs.email_daily_summary || prefs.morning_notifications) {
+          const emailEnabled = prefs.email_daily_summary !== false && prefs.email_daily_summary !== undefined ? prefs.email_daily_summary : true
+          const morningEnabled = prefs.morning_notifications !== false && prefs.morning_notifications !== undefined ? prefs.morning_notifications : true
+          
+          // For morning period, check morning_notifications specifically
+          // For other periods, check email_daily_summary
+          const shouldSend = period === 'morning' 
+            ? (emailEnabled && morningEnabled)
+            : emailEnabled
+          
+          if (shouldSend) {
+            console.log(`📧 Sending ${period} notification to ${user.email} (prefs: email_daily_summary=${prefs.email_daily_summary}, morning_notifications=${prefs.morning_notifications})`)
             await this.sendIntelligentNotification(user.id, period)
             successCount++
+          } else {
+            console.log(`⏭️ Skipping ${period} notification for ${user.email} (notifications disabled)`)
           }
         } catch (error) {
           console.error(`Failed to process ${period} notification for user ${user.id}:`, error)

@@ -148,12 +148,9 @@ export default function EnhancedSettingsPage() {
       
       // Merge notification_preferences into preferences (for morning notifications)
       const notificationPrefs = userData?.notification_preferences || {}
-      if (notificationPrefs.email_daily_summary !== undefined) {
-        mergedPreferences.email_daily_summary = notificationPrefs.email_daily_summary
-      }
-      if (notificationPrefs.morning_notifications !== undefined) {
-        mergedPreferences.morning_notifications = notificationPrefs.morning_notifications
-      }
+      // Set defaults to true if not set (users should receive notifications by default)
+      mergedPreferences.email_daily_summary = notificationPrefs.email_daily_summary ?? true
+      mergedPreferences.morning_notifications = notificationPrefs.morning_notifications ?? true
       
       // Extract profile fields from preferences (since these columns don't exist in users table)
       const profileData = mergedPreferences.profile || {}
