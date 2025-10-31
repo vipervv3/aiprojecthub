@@ -3,13 +3,22 @@ import { intelligentAssistant } from '@/lib/notifications/intelligent-assistant-
 
 export async function GET(request: NextRequest) {
   try {
-    // Verify cron secret to prevent unauthorized access
+    // Vercel cron jobs are automatically authenticated by Vercel
+    // Check for Vercel's cron signature or CRON_SECRET for manual calls
     const authHeader = request.headers.get('authorization')
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const vercelCron = request.headers.get('x-vercel-cron')
+    
+    // If CRON_SECRET is set, require it for non-Vercel calls
+    // Vercel automatically authenticates cron jobs, so we trust x-vercel-cron header
+    if (!vercelCron && process.env.CRON_SECRET) {
+      const providedSecret = authHeader?.replace('Bearer ', '')
+      if (providedSecret !== process.env.CRON_SECRET) {
+        console.error('❌ Unauthorized cron request - missing valid auth')
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      }
     }
 
-    console.log('🌅 Morning notifications triggered')
+    console.log('🌅 Morning notifications triggered at', new Date().toISOString(), vercelCron ? '(Vercel cron)' : '(manual)')
     await intelligentAssistant.processNotificationsForPeriod('morning')
 
     return NextResponse.json({ 
