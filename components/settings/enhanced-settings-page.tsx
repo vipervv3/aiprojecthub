@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { Settings, User, Bell, Shield, Palette, Globe, Save, Eye, EyeOff, Mail, Phone, MapPin, Calendar } from 'lucide-react'
 import { useAuth } from '@/app/providers'
 import { dataService } from '@/lib/data-service'
@@ -93,11 +93,7 @@ export default function EnhancedSettingsPage() {
   const [saving, setSaving] = useState(false)
   const [activeTab, setActiveTab] = useState<'profile' | 'preferences' | 'notifications' | 'privacy'>('profile')
 
-  useEffect(() => {
-    loadUserProfile()
-  }, [])
-
-  const loadUserProfile = async () => {
+  const loadUserProfile = useCallback(async () => {
     try {
       setLoading(true)
       
@@ -169,7 +165,13 @@ export default function EnhancedSettingsPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [user])
+
+  useEffect(() => {
+    if (user) {
+      loadUserProfile()
+    }
+  }, [user, loadUserProfile])
 
   const handleSaveProfile = async () => {
     if (!profile || !user) return
