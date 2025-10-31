@@ -615,15 +615,30 @@ export default function EnhancedCalendarPage() {
       
       // Load real meetings from Supabase (exclude recording meetings)
       if (supabase) {
+        // IMPORTANT: Exclude recordings from calendar
+        // Only show meetings where recording_session_id is NULL (manually scheduled meetings)
+        // Meetings with recording_session_id are recordings and should NOT appear on calendar
         const { data: meetingsData, error } = await supabase
           .from('meetings')
           .select('*')
-          .is('recording_session_id', null) // Only show manually created meetings (not recordings)
+          .is('recording_session_id', null) // Only manually created meetings, NOT recordings
           .order('scheduled_at', { ascending: false })
         
         if (!error && meetingsData) {
-          console.log(`📅 Loaded ${meetingsData.length} manually scheduled meetings for calendar`)
-          meetingsData.forEach((meeting: any) => {
+          // Double-check: Filter out any recordings that might have slipped through
+          // This is a backup filter in case the SQL filter doesn't work in all cases
+          const manualMeetings = meetingsData.filter((meeting: any) => {
+            // Exclude if it has a recording_session_id (it's a recording)
+            if (meeting.recording_session_id) {
+              console.log(`🚫 Excluding recording from calendar: ${meeting.title} (has recording_session_id)`)
+              return false
+            }
+            return true
+          })
+          
+          console.log(`📅 Loaded ${manualMeetings.length} manually scheduled meetings for calendar (filtered out ${meetingsData.length - manualMeetings.length} recordings)`)
+          
+          manualMeetings.forEach((meeting: any) => {
             const meetingDate = new Date(meeting.scheduled_at)
             const duration = meeting.duration || 30
             const endDate = new Date(meetingDate.getTime() + duration * 60000)
