@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { usePathname } from 'next/navigation'
 import { Menu, X } from 'lucide-react'
 import GlobalSearch from '@/components/global-search'
 import Sidebar from './sidebar'
@@ -39,26 +40,41 @@ export default function TopHeader() {
 }
 
 function MobileSidebarOverlay({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
-  const pathname = typeof window !== 'undefined' ? window.location.pathname : ''
+  const pathname = usePathname()
   
   useEffect(() => {
+    // Close menu when route changes
     if (isOpen && pathname) {
       onClose()
     }
   }, [pathname, isOpen, onClose])
 
+  // Prevent body scroll when menu is open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = ''
+    }
+    return () => {
+      document.body.style.overflow = ''
+    }
+  }, [isOpen])
+
   if (!isOpen) return null
 
   return (
     <>
+      {/* Backdrop */}
       <div
-        className="lg:hidden fixed inset-0 bg-black/50 z-40"
+        className="lg:hidden fixed inset-0 bg-black/50 dark:bg-black/70 z-[100]"
         onClick={onClose}
       />
-      <div className={`lg:hidden fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-gray-900 shadow-lg transform transition-transform duration-300 ease-in-out ${
+      {/* Sidebar */}
+      <div className={`lg:hidden fixed inset-y-0 left-0 z-[110] w-64 bg-white dark:bg-gray-900 shadow-2xl transform transition-transform duration-300 ease-in-out ${
         isOpen ? 'translate-x-0' : '-translate-x-full'
       }`}>
-        <Sidebar />
+        <Sidebar onMobileClose={onClose} />
       </div>
     </>
   )
