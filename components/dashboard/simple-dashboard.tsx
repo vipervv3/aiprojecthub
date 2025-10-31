@@ -35,14 +35,14 @@ const MetricCard: React.FC<{
   value: number
   icon: React.ReactNode
 }> = ({ title, value, icon }) => (
-  <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+  <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
     <div className="flex items-center">
-      <div className="p-2 bg-gray-100 rounded-lg mr-4">
+      <div className="p-2 bg-gray-100 dark:bg-gray-700 rounded-lg mr-4">
         {icon}
       </div>
       <div>
-        <p className="text-sm font-medium text-gray-600">{title}</p>
-        <p className="text-2xl font-bold text-gray-900">{value}</p>
+        <p className="text-sm font-medium text-gray-600 dark:text-gray-400">{title}</p>
+        <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{value}</p>
       </div>
     </div>
   </div>
@@ -52,42 +52,42 @@ const AIAssistantBanner: React.FC<{ onStartRecording: () => void; onViewInsights
   onStartRecording, 
   onViewInsights 
 }) => (
-  <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-6 rounded-lg text-white relative overflow-hidden">
+  <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-4 sm:p-6 rounded-lg text-white relative overflow-hidden">
     <div className="relative z-10">
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex-1">
           <h3 className="text-lg font-semibold mb-2">AI-Powered Meeting Assistant</h3>
-          <p className="text-blue-100 mb-4">Record meetings, transcribe automatically, and extract tasks with AI</p>
-          <div className="flex gap-3">
+          <p className="text-blue-100 mb-4 text-sm sm:text-base">Record meetings, transcribe automatically, and extract tasks with AI</p>
+          <div className="flex flex-col sm:flex-row gap-3">
             <button 
               onClick={onStartRecording}
-              className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
+              className="bg-white/20 hover:bg-white/30 px-4 py-3 sm:py-2 rounded-lg flex items-center justify-center gap-2 transition-colors touch-manipulation"
             >
               <Mic className="h-4 w-4" />
-              Start Recording
+              <span className="text-sm sm:text-base">Start Recording</span>
             </button>
             <button 
               onClick={onViewInsights}
-              className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
+              className="bg-white/20 hover:bg-white/30 px-4 py-3 sm:py-2 rounded-lg flex items-center justify-center gap-2 transition-colors touch-manipulation"
             >
               <BarChart3 className="h-4 w-4" />
-              View AI Insights
+              <span className="text-sm sm:text-base">View AI Insights</span>
             </button>
           </div>
         </div>
       </div>
     </div>
-    <div className="absolute top-4 right-4 text-white/30">
+    <div className="absolute top-4 right-4 text-white/30 hidden sm:block">
       <Mic className="h-16 w-16 opacity-20" />
     </div>
   </div>
 )
 
 const RecentActivity: React.FC<{ activities: any[] }> = ({ activities }) => (
-  <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+  <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
     <div className="flex items-center justify-between mb-4">
-      <h3 className="text-lg font-semibold text-gray-900">Recent Activity</h3>
-      <button className="text-blue-600 hover:text-blue-700 text-sm font-medium">
+      <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Recent Activity</h3>
+      <button className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-sm font-medium touch-manipulation">
         View all
       </button>
     </div>
@@ -406,7 +406,7 @@ export default function SimpleDashboard() {
   }
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-6 lg:p-8">
       <div className="max-w-7xl mx-auto">
         {/* Welcome Header */}
         <div className="mb-8">

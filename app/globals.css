@@ -100,6 +100,22 @@
   @apply border-l-4 border-green-500 bg-green-50;
 }
 
+/* Mobile optimizations */
+@layer utilities {
+  .touch-manipulation {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  /* Better touch targets for mobile */
+  @media (max-width: 640px) {
+    button, a {
+      min-height: 44px;
+      min-width: 44px;
+    }
+  }
+}
+
 /* Status indicators */
 .status-active {
   @apply bg-green-100 text-green-800;
