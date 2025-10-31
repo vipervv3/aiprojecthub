@@ -173,15 +173,15 @@ export default function ProjectReportDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="flex h-screen">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="flex flex-col lg:flex-row h-screen">
         {/* Left Sidebar - Project Info */}
-        <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
+        <div className="w-full lg:w-80 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
           {/* Back Button */}
-          <div className="p-4 border-b border-gray-200">
+          <div className="p-3 sm:p-4 border-b border-gray-200 dark:border-gray-700">
             <button
               onClick={() => router.push('/reports')}
-              className="flex items-center gap-2 text-gray-600 hover:text-gray-900"
+              className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 touch-manipulation"
             >
               <ArrowLeft className="h-4 w-4" />
               <span className="text-sm">Back to Reports</span>
@@ -189,26 +189,26 @@ export default function ProjectReportDetailPage() {
           </div>
 
           {/* Overview Tab */}
-          <div className="p-4 border-b border-gray-200">
-            <div className="bg-gray-100 px-4 py-2 rounded text-sm font-medium text-gray-900">
+          <div className="p-3 sm:p-4 border-b border-gray-200 dark:border-gray-700">
+            <div className="bg-gray-100 dark:bg-gray-700 px-4 py-2 rounded text-sm font-medium text-gray-900 dark:text-gray-100">
               Overview
             </div>
           </div>
 
           {/* Project Details */}
-          <div className="flex-1 overflow-y-auto p-6">
+          <div className="flex-1 overflow-y-auto p-3 sm:p-6">
             <div className="space-y-6">
               {/* Project Name */}
               <div>
-                <label className="text-xs font-medium text-gray-500 uppercase mb-2 block">
+                <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase mb-2 block">
                   Project Name
                 </label>
-                <p className="text-base font-semibold text-gray-900">{project.name}</p>
+                <p className="text-base font-semibold text-gray-900 dark:text-gray-100">{project.name}</p>
               </div>
 
               {/* Project Status */}
               <div>
-                <label className="text-xs font-medium text-gray-500 uppercase mb-2 block">
+                <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase mb-2 block">
                   Project Status
                 </label>
                 <span className={`inline-block px-3 py-1 rounded text-sm font-medium capitalize ${getStatusBadge(project.status)}`}>
@@ -218,26 +218,26 @@ export default function ProjectReportDetailPage() {
 
               {/* Start Date */}
               <div>
-                <label className="text-xs font-medium text-gray-500 uppercase mb-2 block">
+                <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase mb-2 block">
                   Start Date
                 </label>
-                <p className="text-sm text-gray-900">{formatDate(project.start_date || project.created_at)}</p>
+                <p className="text-sm text-gray-900 dark:text-gray-100">{formatDate(project.start_date || project.created_at)}</p>
               </div>
 
               {/* Due Date */}
               <div>
-                <label className="text-xs font-medium text-gray-500 uppercase mb-2 block">
+                <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase mb-2 block">
                   Due Date
                 </label>
-                <p className="text-sm text-gray-900">{formatDate(project.due_date)}</p>
+                <p className="text-sm text-gray-900 dark:text-gray-100">{formatDate(project.due_date)}</p>
               </div>
 
               {/* Team Members */}
               <div>
-                <label className="text-xs font-medium text-gray-500 uppercase mb-2 block">
+                <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase mb-2 block">
                   Team Members
                 </label>
-                <div className="flex items-center gap-2 text-sm text-gray-900">
+                <div className="flex items-center gap-2 text-sm text-gray-900 dark:text-gray-100">
                   <Users className="h-4 w-4" />
                   <span>{Array.isArray(project.team_members) ? project.team_members.length : 1}</span>
                 </div>
@@ -246,15 +246,15 @@ export default function ProjectReportDetailPage() {
           </div>
 
           {/* Action Buttons */}
-          <div className="p-6 border-t border-gray-200 space-y-3">
+          <div className="p-3 sm:p-6 border-t border-gray-200 dark:border-gray-700 space-y-2 sm:space-y-3">
             <button
               onClick={() => router.push(`/projects/${project.id}`)}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+              className="w-full flex items-center justify-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 touch-manipulation"
             >
               <Edit className="h-4 w-4" />
               Edit
             </button>
-            <button className="w-full flex items-center justify-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
+            <button className="w-full flex items-center justify-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 touch-manipulation">
               <Share2 className="h-4 w-4" />
               Share
             </button>
@@ -263,18 +263,40 @@ export default function ProjectReportDetailPage() {
 
         {/* Main Content Area */}
         <div className="flex-1 overflow-y-auto">
-          <div className="p-8">
+          <div className="p-3 sm:p-4 lg:p-6 xl:p-8 pt-16 lg:pt-6">
             {/* Progress Circles */}
-            <div className="grid grid-cols-2 gap-8 mb-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 lg:gap-8 mb-6 sm:mb-8">
               {/* Overall Progress */}
-              <div className="bg-white p-6 rounded-lg border border-gray-200">
+              <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg border border-gray-200 dark:border-gray-700">
                 <div className="flex flex-col items-center">
-                  <div className="relative w-40 h-40 mb-4">
-                    <svg className="transform -rotate-90 w-40 h-40">
+                  <div className="relative w-32 h-32 sm:w-40 sm:h-40 mb-4">
+                    <svg className="transform -rotate-90 w-32 h-32 sm:w-40 sm:h-40">
+                      <circle
+                        cx="64"
+                        cy="64"
+                        r="56"
+                        className="sm:hidden"
+                        stroke="#E5E7EB"
+                        strokeWidth="10"
+                        fill="none"
+                      />
+                      <circle
+                        cx="64"
+                        cy="64"
+                        r="56"
+                        className="sm:hidden"
+                        stroke="#3B82F6"
+                        strokeWidth="10"
+                        fill="none"
+                        strokeDasharray={`${2 * Math.PI * 56}`}
+                        strokeDashoffset={`${2 * Math.PI * 56 * (1 - overallProgress / 100)}`}
+                        strokeLinecap="round"
+                      />
                       <circle
                         cx="80"
                         cy="80"
                         r="70"
+                        className="hidden sm:block"
                         stroke="#E5E7EB"
                         strokeWidth="12"
                         fill="none"
@@ -283,6 +305,7 @@ export default function ProjectReportDetailPage() {
                         cx="80"
                         cy="80"
                         r="70"
+                        className="hidden sm:block"
                         stroke="#3B82F6"
                         strokeWidth="12"
                         fill="none"
@@ -292,23 +315,45 @@ export default function ProjectReportDetailPage() {
                       />
                     </svg>
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <span className="text-4xl font-bold text-gray-900">{overallProgress}%</span>
+                      <span className="text-2xl sm:text-4xl font-bold text-gray-900 dark:text-gray-100">{overallProgress}%</span>
                     </div>
                   </div>
-                  <p className="text-sm font-medium text-gray-600">Overall Progress</p>
+                  <p className="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400">Overall Progress</p>
                 </div>
               </div>
 
               {/* Milestone Progress */}
-              <div className="bg-white p-6 rounded-lg border border-gray-200">
-                <h3 className="text-sm font-semibold text-gray-900 mb-4">Milestone Progress</h3>
+              <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg border border-gray-200 dark:border-gray-700">
+                <h3 className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3 sm:mb-4">Milestone Progress</h3>
                 <div className="flex flex-col items-center">
-                  <div className="relative w-32 h-32 mb-4">
-                    <svg className="transform -rotate-90 w-32 h-32">
+                  <div className="relative w-24 h-24 sm:w-32 sm:h-32 mb-4">
+                    <svg className="transform -rotate-90 w-24 h-24 sm:w-32 sm:h-32">
+                      <circle
+                        cx="48"
+                        cy="48"
+                        r="42"
+                        className="sm:hidden"
+                        stroke="#E5E7EB"
+                        strokeWidth="8"
+                        fill="none"
+                      />
+                      <circle
+                        cx="48"
+                        cy="48"
+                        r="42"
+                        className="sm:hidden"
+                        stroke="#10B981"
+                        strokeWidth="8"
+                        fill="none"
+                        strokeDasharray={`${2 * Math.PI * 42}`}
+                        strokeDashoffset={`${2 * Math.PI * 42 * (1 - milestoneProgress / 100)}`}
+                        strokeLinecap="round"
+                      />
                       <circle
                         cx="64"
                         cy="64"
                         r="56"
+                        className="hidden sm:block"
                         stroke="#E5E7EB"
                         strokeWidth="10"
                         fill="none"
@@ -317,6 +362,7 @@ export default function ProjectReportDetailPage() {
                         cx="64"
                         cy="64"
                         r="56"
+                        className="hidden sm:block"
                         stroke="#10B981"
                         strokeWidth="10"
                         fill="none"
@@ -326,19 +372,19 @@ export default function ProjectReportDetailPage() {
                       />
                     </svg>
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <span className="text-2xl font-bold text-gray-900">{milestoneProgress}%</span>
+                      <span className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">{milestoneProgress}%</span>
                     </div>
                   </div>
-                  <p className="text-xs text-gray-500">Current Milestone</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Current Milestone</p>
                 </div>
               </div>
             </div>
 
             {/* Task Priority and Status */}
-            <div className="grid grid-cols-2 gap-8 mb-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 lg:gap-8 mb-6 sm:mb-8">
               {/* Task Priority */}
-              <div className="bg-white p-6 rounded-lg border border-gray-200">
-                <h3 className="text-sm font-semibold text-gray-900 mb-4">Task Priority</h3>
+              <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg border border-gray-200 dark:border-gray-700">
+                <h3 className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3 sm:mb-4">Task Priority</h3>
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-700">Urgent</span>
@@ -395,38 +441,38 @@ export default function ProjectReportDetailPage() {
               </div>
 
               {/* Task Status and Team Estimation */}
-              <div className="space-y-6">
+              <div className="space-y-4 sm:space-y-6">
                 {/* Task Status */}
-                <div className="bg-white p-6 rounded-lg border border-gray-200">
-                  <h3 className="text-sm font-semibold text-gray-900 mb-4">Task Status</h3>
+                <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg border border-gray-200 dark:border-gray-700">
+                  <h3 className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3 sm:mb-4">Task Status</h3>
                   <div className="flex items-center gap-2 mb-2">
-                    <div className="w-2 h-2 rounded-full bg-gray-400"></div>
-                    <span className="text-sm text-gray-700">
+                    <div className="w-2 h-2 rounded-full bg-gray-400 dark:bg-gray-500"></div>
+                    <span className="text-xs sm:text-sm text-gray-700 dark:text-gray-300">
                       Todo ({totalTasks > 0 ? Math.round((todoTasks / totalTasks) * 100) : 0}%)
                     </span>
                   </div>
-                  <div className="text-2xl font-bold text-gray-900 mb-2">
+                  <div className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
                     {todoTasks}/{totalTasks}
                   </div>
-                  <p className="text-xs text-gray-500">tasks pending</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">tasks pending</p>
                 </div>
 
                 {/* Team Estimation */}
-                <div className="bg-white p-6 rounded-lg border border-gray-200">
-                  <h3 className="text-sm font-semibold text-gray-900 mb-4">Team Estimation</h3>
+                <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg border border-gray-200 dark:border-gray-700">
+                  <h3 className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3 sm:mb-4">Team Estimation</h3>
                   <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-sm text-gray-700">
+                    <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-700 dark:text-gray-300">
                       <User className="h-4 w-4" />
                       <span>Project Owner</span>
                     </div>
                     {Array.isArray(project.team_members) && project.team_members.length > 0 && (
                       <>
-                        <div className="flex items-center gap-2 text-sm text-gray-700">
+                        <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-700 dark:text-gray-300">
                           <User className="h-4 w-4" />
                           <span>Team Member 1</span>
                         </div>
                         {project.team_members.length > 1 && (
-                          <div className="flex items-center gap-2 text-sm text-gray-700">
+                          <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-700 dark:text-gray-300">
                             <User className="h-4 w-4" />
                             <span>Team Member 2</span>
                           </div>
@@ -438,55 +484,91 @@ export default function ProjectReportDetailPage() {
               </div>
             </div>
 
-            {/* Tasks Table */}
-            <div className="bg-white rounded-lg border border-gray-200">
-              <div className="p-6 border-b border-gray-200">
-                <h3 className="text-lg font-semibold text-gray-900">
-                  Tasks <span className="text-gray-500">({completedTasks} of {totalTasks} completed)</span>
+            {/* Tasks Table - Mobile Card View, Desktop Table View */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+              <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700">
+                <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100">
+                  Tasks <span className="text-gray-500 dark:text-gray-400">({completedTasks} of {totalTasks} completed)</span>
                 </h3>
               </div>
-              <div className="overflow-x-auto">
+              
+              {/* Mobile Card View */}
+              <div className="sm:hidden divide-y divide-gray-200 dark:divide-gray-700">
+                {tasks.length === 0 ? (
+                  <div className="p-6 text-center text-gray-500 dark:text-gray-400">
+                    No tasks found for this project
+                  </div>
+                ) : (
+                  tasks.map((task) => (
+                    <div key={task.id} className="p-4 space-y-2">
+                      <div className="flex items-start justify-between">
+                        <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 flex-1">{task.title}</h4>
+                        <span className={`inline-block px-2 py-1 rounded text-xs font-medium capitalize ${getPriorityColor(task.priority)} ml-2`}>
+                          {task.priority}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-4 text-xs text-gray-600 dark:text-gray-400">
+                        <span>Start: {formatDate(task.start_date) !== 'N/A' ? formatDate(task.start_date) : formatDate(task.created_at)}</span>
+                        <span>Due: {formatDate(task.due_date)}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium capitalize ${getStatusColor(task.status)}`}>
+                          {task.status === 'todo' && '● Todo'}
+                          {task.status === 'in_progress' && '● In Progress'}
+                          {task.status === 'completed' && '● Completed'}
+                        </span>
+                        <span className="text-xs text-gray-600 dark:text-gray-400">
+                          {task.status === 'completed' ? '100%' : task.status === 'in_progress' ? '50%' : '0%'}
+                        </span>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* Desktop Table View */}
+              <div className="hidden sm:block overflow-x-auto">
                 <table className="w-full">
-                  <thead className="bg-gray-50 border-b border-gray-200">
+                  <thead className="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Task</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Start Date</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Due Date</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Priority</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Assignee</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Progress</th>
+                      <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Task</th>
+                      <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Start Date</th>
+                      <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Due Date</th>
+                      <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Status</th>
+                      <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Priority</th>
+                      <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Assignee</th>
+                      <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Progress</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-200">
+                  <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                     {tasks.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
+                        <td colSpan={7} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
                           No tasks found for this project
                         </td>
                       </tr>
                     ) : (
                       tasks.map((task) => (
-                        <tr key={task.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 text-sm text-gray-900">{task.title}</td>
-                          <td className="px-6 py-4 text-sm text-gray-600">
+                        <tr key={task.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                          <td className="px-4 lg:px-6 py-4 text-sm text-gray-900 dark:text-gray-100">{task.title}</td>
+                          <td className="px-4 lg:px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
                             {formatDate(task.start_date) !== 'N/A' ? formatDate(task.start_date) : formatDate(task.created_at)}
                           </td>
-                          <td className="px-6 py-4 text-sm text-gray-600">{formatDate(task.due_date)}</td>
-                          <td className="px-6 py-4">
+                          <td className="px-4 lg:px-6 py-4 text-sm text-gray-600 dark:text-gray-400">{formatDate(task.due_date)}</td>
+                          <td className="px-4 lg:px-6 py-4">
                             <span className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium capitalize ${getStatusColor(task.status)}`}>
                               {task.status === 'todo' && '● Todo'}
                               {task.status === 'in_progress' && '● In Progress'}
                               {task.status === 'completed' && '● Completed'}
                             </span>
                           </td>
-                          <td className="px-6 py-4">
+                          <td className="px-4 lg:px-6 py-4">
                             <span className={`inline-block px-2 py-1 rounded text-xs font-medium capitalize ${getPriorityColor(task.priority)}`}>
                               {task.priority}
                             </span>
                           </td>
-                          <td className="px-6 py-4 text-sm text-gray-600">Project Owner</td>
-                          <td className="px-6 py-4 text-sm text-gray-600">
+                          <td className="px-4 lg:px-6 py-4 text-sm text-gray-600 dark:text-gray-400">Project Owner</td>
+                          <td className="px-4 lg:px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
                             {task.status === 'completed' ? '100%' : task.status === 'in_progress' ? '50%' : '0%'}
                           </td>
                         </tr>
