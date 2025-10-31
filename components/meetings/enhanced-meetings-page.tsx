@@ -54,13 +54,13 @@ const ViewMeetingModal: React.FC<ViewMeetingModalProps> = ({ meeting, onClose, o
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black bg-opacity-50 dark:bg-black/70 flex items-center justify-center z-50 p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-lg p-4 sm:p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-gray-900">{meeting.title}</h2>
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">{meeting.title}</h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
+            className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 touch-manipulation"
           >
             <XCircle className="h-6 w-6" />
           </button>
@@ -81,7 +81,7 @@ const ViewMeetingModal: React.FC<ViewMeetingModalProps> = ({ meeting, onClose, o
             <div className="flex items-center gap-2">
               <Calendar className="h-5 w-5 text-gray-400" />
               <div>
-                <p className="text-sm font-medium text-gray-900">{meeting.date}</p>
+                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{meeting.date}</p>
                 <p className="text-sm text-gray-600">{meeting.start_time} - {meeting.end_time}</p>
               </div>
             </div>
@@ -98,7 +98,7 @@ const ViewMeetingModal: React.FC<ViewMeetingModalProps> = ({ meeting, onClose, o
 
           {meeting.description && (
             <div>
-              <h3 className="text-sm font-medium text-gray-900 mb-2">Description</h3>
+              <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">Description</h3>
               <p className="text-sm text-gray-600">{meeting.description}</p>
             </div>
           )}
@@ -337,13 +337,13 @@ export default function EnhancedMeetingsPage() {
   }
 
   return (
-    <div className="p-6">
+    <div className="p-3 sm:p-4 lg:p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6 sm:mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Recordings</h1>
-            <p className="text-gray-600 mt-2">View and manage your meeting recordings with AI-generated transcripts and tasks</p>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">Recordings</h1>
+            <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-2">View and manage your meeting recordings with AI-generated transcripts and tasks</p>
           </div>
           <div className="flex items-center gap-3">
             <button

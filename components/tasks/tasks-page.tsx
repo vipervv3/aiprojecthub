@@ -288,13 +288,13 @@ export default function TasksPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="py-6">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="py-3 sm:py-4 lg:py-6">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
               {/* Header */}
-              <div className="mb-8 flex items-center justify-between">
+              <div className="mb-6 sm:mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
-                  <h1 className="text-3xl font-bold text-gray-900">Tasks</h1>
-                  <p className="mt-2 text-gray-600">
+                  <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">Tasks</h1>
+                  <p className="mt-2 text-sm sm:text-base text-gray-600 dark:text-gray-400">
                     AI-powered task management with smart prioritization and intelligent insights
                   </p>
                 </div>
@@ -436,7 +436,7 @@ export default function TasksPage() {
       {/* View Task Modal */}
       {viewTask && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-white dark:bg-gray-800 rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex items-start justify-between mb-4">
                 <h2 className="text-2xl font-bold text-gray-900">{viewTask.title}</h2>
@@ -515,7 +515,7 @@ export default function TasksPage() {
       {/* Edit Task Modal */}
       {editTask && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-white dark:bg-gray-800 rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex items-start justify-between mb-4">
                 <h2 className="text-2xl font-bold text-gray-900">Edit Task</h2>
