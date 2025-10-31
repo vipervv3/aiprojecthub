@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'react-hot-toast'
 import { Eye, EyeOff, ArrowRight, UserPlus } from 'lucide-react'
 import Link from 'next/link'
+import { supabase } from '@/lib/supabase'
 
 export default function SignupPage() {
   const [email, setEmail] = useState('')
@@ -14,26 +15,6 @@ export default function SignupPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const router = useRouter()
-  
-  let supabase: any = null
-  
-  // Use hardcoded values for now to ensure connection works
-  const supabaseUrl = 'https://xekyfsnxrnfkdvrcsiye.supabase.co'
-  const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhla3lmc254cm5ma2R2cmNzaXllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkzNzExMDgsImV4cCI6MjA3NDk0NzEwOH0.mV9Ag7xvHJTPaMVgnVFvhu9L2C2Y3qJRzJDCs0ybthw'
-  const hasSupabaseConfig = true
-  
-  console.log('Signup environment check:', { supabaseUrl, hasSupabaseConfig })
-  
-  if (hasSupabaseConfig) {
-    try {
-      // Create Supabase client directly with our values
-      const { createClient } = require('@supabase/supabase-js')
-      supabase = createClient(supabaseUrl, supabaseKey)
-      console.log('Supabase client created successfully for signup')
-    } catch (error) {
-      console.warn('Failed to create Supabase client:', error)
-    }
-  }
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault()

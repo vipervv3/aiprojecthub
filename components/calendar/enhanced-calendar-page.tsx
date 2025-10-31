@@ -564,13 +564,13 @@ export default function EnhancedCalendarPage() {
       const calendarEvents: CalendarEvent[] = []
       
       // Add project events
-      projects.forEach(project => {
-        if (project.start_date) {
+      projects.forEach((project: any) => {
+        if ((project as any).start_date) {
           calendarEvents.push({
             id: `project-${project.id}`,
             title: project.name,
             type: 'project',
-            start: new Date(project.start_date),
+            start: new Date((project as any).start_date),
             allDay: true,
             description: project.description,
             status: project.status,
@@ -828,7 +828,7 @@ export default function EnhancedCalendarPage() {
           }
           
           // Log recurring events info
-          const recurringCount = syncedEventsData.filter(e => e.recurrence).length
+          const recurringCount = syncedEventsData.filter((e: any) => e.recurrence).length
           if (recurringCount > 0) {
             console.log(`🔄 Found ${recurringCount} recurring event instances (all shown)`)
           }
