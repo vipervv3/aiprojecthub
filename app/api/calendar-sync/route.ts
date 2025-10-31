@@ -166,19 +166,29 @@ export async function PATCH(request: NextRequest) {
           .eq('sync_id', syncId)
 
         // Insert new events
-        const eventsToInsert = events.map(event => ({
-          sync_id: syncId,
-          external_uid: event.uid,
-          title: event.title,
-          description: event.description,
-          start_time: event.start.toISOString(),
-          end_time: event.end?.toISOString(),
-          location: event.location,
-          organizer: event.organizer,
-          attendees: event.attendees,
-          all_day: event.allDay,
-          recurrence: event.recurrence
-        }))
+        const eventsToInsert = events.map((event, index) => {
+          const startISO = event.start.toISOString()
+          const endISO = event.end?.toISOString()
+          
+          // Debug logging for first few events to verify UTC times
+          if (index < 5) {
+            console.log(`📅 Event "${event.title}": start=${event.start.toLocaleString()} (local) → ${startISO} (UTC), hour=${event.start.getHours()}`)
+          }
+          
+          return {
+            sync_id: syncId,
+            external_uid: event.uid,
+            title: event.title,
+            description: event.description,
+            start_time: startISO,
+            end_time: endISO,
+            location: event.location,
+            organizer: event.organizer,
+            attendees: event.attendees,
+            all_day: event.allDay,
+            recurrence: event.recurrence
+          }
+        })
 
         if (eventsToInsert.length > 0) {
           await supabaseAdmin
