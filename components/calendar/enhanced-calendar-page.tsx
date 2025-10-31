@@ -1385,8 +1385,8 @@ export default function EnhancedCalendarPage() {
                                 if (isMatch) {
                                   console.log(`✅ Synced event "${event.title}" in correct slot: hour=${eventLocalHour}, slot=${hour}, time=${eventLocal}`)
                                 } else if (eventDay === columnDay && Math.abs(eventLocalHour - hour) <= 12) {
-                                  // Show if it's on the same day but wrong hour (likely timezone issue)
-                                  console.warn(`⚠️ Synced event "${event.title}" on correct day but wrong hour: hour=${eventLocalHour}, slot=${hour}, time=${eventLocal}, UTC=${eventISO}`)
+                                  // Show if it's on the same day but wrong hour (UTC time in DB is wrong from old sync)
+                                  console.warn(`⚠️ Synced event "${event.title}" on correct day but wrong hour: parsed hour=${eventLocalHour}, displayed slot=${hour}, time=${eventLocal}, UTC=${eventISO}. The stored UTC time is incorrect from old sync - please refresh your calendar sync to fix.`)
                                 }
                               }
                               
