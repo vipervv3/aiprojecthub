@@ -126,6 +126,9 @@ export default function EnhancedSettingsPage() {
           deadlineReminders: true,
           weeklyReports: false
         },
+        // Email notification preferences (required for morning notifications)
+        email_daily_summary: true,
+        morning_notifications: true,
         privacy: {
           profileVisibility: 'team' as const,
           showOnlineStatus: true,
@@ -142,6 +145,15 @@ export default function EnhancedSettingsPage() {
       const mergedPreferences = userData?.preferences 
         ? { ...defaultPreferences, ...userData.preferences }
         : defaultPreferences
+      
+      // Merge notification_preferences into preferences (for morning notifications)
+      const notificationPrefs = userData?.notification_preferences || {}
+      if (notificationPrefs.email_daily_summary !== undefined) {
+        mergedPreferences.email_daily_summary = notificationPrefs.email_daily_summary
+      }
+      if (notificationPrefs.morning_notifications !== undefined) {
+        mergedPreferences.morning_notifications = notificationPrefs.morning_notifications
+      }
       
       // Extract profile fields from preferences (since these columns don't exist in users table)
       const profileData = mergedPreferences.profile || {}
@@ -240,9 +252,20 @@ export default function EnhancedSettingsPage() {
     try {
       setSaving(true)
       
+      // Build notification_preferences object (required for morning notifications)
+      const notificationPreferences = {
+        email_daily_summary: profile.preferences.email_daily_summary ?? true,
+        morning_notifications: profile.preferences.morning_notifications ?? true,
+        smart_alerts: profile.preferences.notifications?.push ?? true,
+        push_notifications: profile.preferences.notifications?.push ?? true,
+        morning_notification_time: profile.preferences.morning_notification_time || '08:00',
+        ...profile.preferences.notifications
+      }
+      
       // Save preferences to database
       const result = await dataService.updateUserProfile(user.id, {
         preferences: profile.preferences,
+        notification_preferences: notificationPreferences,
         timezone: profile.preferences.timezone
       })
       
@@ -485,7 +508,7 @@ export default function EnhancedSettingsPage() {
             <SettingSection title="Notification Preferences" icon={<Bell className="h-5 w-5" />}>
               <div className="space-y-4">
                 <ToggleSwitch
-                  enabled={profile.preferences.notifications.email}
+                  enabled={profile.preferences.notifications?.email ?? true}
                   onChange={(enabled) => setProfile({ 
                     ...profile, 
                     preferences: { 
@@ -493,11 +516,13 @@ export default function EnhancedSettingsPage() {
                       notifications: { 
                         ...profile.preferences.notifications, 
                         email: enabled 
-                      } 
+                      },
+                      email_daily_summary: enabled,
+                      morning_notifications: enabled
                     } 
                   })}
                   label="Email Notifications"
-                  description="Receive notifications via email"
+                  description="Receive notifications via email (includes morning notifications)"
                 />
                 <ToggleSwitch
                   enabled={profile.preferences.notifications.push}
