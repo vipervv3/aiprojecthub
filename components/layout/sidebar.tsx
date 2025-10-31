@@ -20,6 +20,7 @@ import {
   ChevronRight,
   Bell
 } from 'lucide-react'
+import ThemeToggle from '@/components/theme-toggle'
 
 export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false)
@@ -67,31 +68,31 @@ export default function Sidebar() {
   }
 
   return (
-    <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0 ${
+    <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-gray-900 shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0 ${
       collapsed ? '-translate-x-full lg:translate-x-0' : 'translate-x-0'
     }`}>
       <div className="flex flex-col h-full">
         {/* Logo */}
-        <div className="flex items-center justify-between h-16 px-6 border-b border-gray-200">
+        <div className="flex items-center justify-between h-16 px-6 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center space-x-3">
             <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
               <span className="text-white font-bold text-sm">AI</span>
             </div>
             {!collapsed && (
               <div>
-                <h1 className="text-lg font-bold text-gray-900">AI ProjectHub</h1>
-                <p className="text-xs text-gray-500">Intelligent Management</p>
+                <h1 className="text-lg font-bold text-gray-900 dark:text-gray-100">AI ProjectHub</h1>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Intelligent Management</p>
               </div>
             )}
           </div>
           <button
             onClick={() => setCollapsed(!collapsed)}
-            className="p-1 rounded-md hover:bg-gray-100 lg:hidden"
+            className="p-1 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 lg:hidden"
           >
             {collapsed ? (
-              <ChevronRight className="h-5 w-5 text-gray-500" />
+              <ChevronRight className="h-5 w-5 text-gray-500 dark:text-gray-400" />
             ) : (
-              <ChevronLeft className="h-5 w-5 text-gray-500" />
+              <ChevronLeft className="h-5 w-5 text-gray-500 dark:text-gray-400" />
             )}
           </button>
         </div>
@@ -104,12 +105,12 @@ export default function Sidebar() {
               href={item.href}
               className={`group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
                 item.current
-                  ? 'bg-blue-600 text-white'
-                  : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                  ? 'bg-blue-600 dark:bg-blue-500 text-white'
+                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100'
               }`}
             >
               <item.icon className={`mr-3 h-5 w-5 ${
-                item.current ? 'text-white' : 'text-gray-400 group-hover:text-gray-500'
+                item.current ? 'text-white' : 'text-gray-400 dark:text-gray-500 group-hover:text-gray-500 dark:group-hover:text-gray-400'
               }`} />
               <span className="flex-1">{item.name}</span>
               {item.badge && (
@@ -132,30 +133,37 @@ export default function Sidebar() {
         </nav>
 
         {/* User section */}
-        <div className="border-t border-gray-200 p-4">
+        <div className="border-t border-gray-200 dark:border-gray-700 p-4">
           <div className="flex items-center space-x-3 mb-4">
-            <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center">
-              <span className="text-sm font-medium text-gray-700">
+            <div className="w-8 h-8 bg-gray-300 dark:bg-gray-700 rounded-full flex items-center justify-center">
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                 {user?.user_metadata?.name?.[0] || user?.email?.[0]?.toUpperCase() || 'U'}
               </span>
             </div>
             {!collapsed && (
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900 truncate">
+                <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
                   {user?.user_metadata?.name || user?.email || 'User'}
                 </p>
-                <p className="text-xs text-gray-500 truncate">
+                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
                   {user?.email}
                 </p>
               </div>
             )}
           </div>
           
+          <div className="flex items-center gap-2 mb-2">
+            <ThemeToggle />
+            {!collapsed && (
+              <span className="text-xs text-gray-500 dark:text-gray-400 flex-1">Theme</span>
+            )}
+          </div>
+          
           <button
             onClick={handleSignOut}
-            className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-red-50 hover:text-red-700 rounded-lg transition-colors cursor-pointer"
+            className="flex items-center w-full px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-700 dark:hover:text-red-400 rounded-lg transition-colors cursor-pointer"
           >
-            <LogOut className="mr-3 h-4 w-4 text-gray-400 hover:text-red-500" />
+            <LogOut className="mr-3 h-4 w-4 text-gray-400 dark:text-gray-500 hover:text-red-500" />
             <span>Logout</span>
           </button>
         </div>

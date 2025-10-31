@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { User } from '@supabase/supabase-js'
 import { RecordingProvider } from './recording-provider'
+import { ThemeProvider } from '@/lib/theme-provider'
 
 interface AuthContextType {
   user: User | null
@@ -52,11 +53,13 @@ export function Providers({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, signOut }}>
-      <RecordingProvider>
-        {children}
-      </RecordingProvider>
-    </AuthContext.Provider>
+    <ThemeProvider>
+      <AuthContext.Provider value={{ user, loading, signOut }}>
+        <RecordingProvider>
+          {children}
+        </RecordingProvider>
+      </AuthContext.Provider>
+    </ThemeProvider>
   )
 }
 
