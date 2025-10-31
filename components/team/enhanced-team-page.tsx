@@ -46,7 +46,7 @@ const InviteMemberModal: React.FC<InviteMemberModalProps> = ({ onClose, onInvite
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md">
+      <div className="bg-white dark:bg-gray-800 rounded-lg p-4 sm:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-bold text-gray-900">Invite Team Member</h2>
           <button
@@ -346,17 +346,17 @@ export default function EnhancedTeamPage() {
   }
 
   return (
-    <div className="p-6">
+    <div className="p-3 sm:p-4 lg:p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6 sm:mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Team Management</h1>
-            <p className="text-gray-600 mt-2">Manage your team members and their roles</p>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">Team Management</h1>
+            <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-2">Manage your team members and their roles</p>
           </div>
           <button
             onClick={() => setShowInviteModal(true)}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
+            className="bg-blue-600 dark:bg-blue-500 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 flex items-center justify-center gap-2 touch-manipulation w-full sm:w-auto"
           >
             <UserPlus className="h-5 w-5" />
             Invite Member

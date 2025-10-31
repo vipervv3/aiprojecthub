@@ -406,14 +406,14 @@ export default function SimpleDashboard() {
   }
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8">
+    <div className="p-3 sm:p-4 lg:p-6 xl:p-8">
       <div className="max-w-7xl mx-auto">
         {/* Welcome Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">
             Welcome back, {user?.user_metadata?.name || 'Omar'}! 👋
           </h1>
-          <p className="text-gray-600 mt-2">
+          <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-2">
             Here's what's happening with your projects today.
           </p>
         </div>

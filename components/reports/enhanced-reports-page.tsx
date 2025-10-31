@@ -172,31 +172,31 @@ export default function EnhancedReportsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-3 sm:p-4 lg:p-6 xl:p-8">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-start justify-between">
+        <div className="mb-6 sm:mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
             <div>
               <div className="flex items-center gap-3 mb-2">
-                <FileText className="h-8 w-8 text-blue-600" />
-                <h1 className="text-3xl font-bold text-gray-900">Project Reports</h1>
+                <FileText className="h-8 w-8 text-blue-600 dark:text-blue-400" />
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">Project Reports</h1>
               </div>
-              <p className="text-gray-600">
+              <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">
                 Comprehensive overview of all projects with detailed metrics and status tracking
               </p>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
               <button
                 onClick={handleExport}
-                className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                className="flex items-center justify-center gap-2 px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors touch-manipulation"
               >
                 <Download className="h-4 w-4" />
                 Export
               </button>
               <button
                 onClick={() => router.push('/analytics')}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 dark:bg-blue-500 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors touch-manipulation"
               >
                 <BarChart3 className="h-4 w-4" />
                 Analytics

@@ -59,14 +59,14 @@ const InsightCard: React.FC<{ insight: AIInsight }> = ({ insight }) => {
   }
 
   return (
-    <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
+    <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow">
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-3">
           <div className={`p-2 rounded-lg ${getTypeColor(insight.type)}`}>
             {getTypeIcon(insight.type)}
           </div>
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">{insight.title}</h3>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{insight.title}</h3>
             <p className="text-sm text-gray-600">{insight.category}</p>
           </div>
         </div>
@@ -225,24 +225,24 @@ export default function SimpleAIInsightsPage() {
   }
 
   return (
-    <div className="p-8">
+    <div className="p-3 sm:p-4 lg:p-6 xl:p-8">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
+        <div className="mb-6 sm:mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
             <div className="flex items-center gap-3">
-              <div className="p-3 bg-purple-100 rounded-lg">
-                <Brain className="h-8 w-8 text-purple-600" />
+              <div className="p-3 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+                <Brain className="h-8 w-8 text-purple-600 dark:text-purple-400" />
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-gray-900">AI Insights</h1>
-                <p className="text-gray-600 mt-1">Intelligent analysis and recommendations powered by AI</p>
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">AI Insights</h1>
+                <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-1">Intelligent analysis and recommendations powered by AI</p>
               </div>
             </div>
             <button
               onClick={generateInsights}
               disabled={generating || loadingData}
-              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
+              className="px-4 py-2.5 bg-purple-600 dark:bg-purple-500 text-white rounded-lg hover:bg-purple-700 dark:hover:bg-purple-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors touch-manipulation w-full sm:w-auto"
             >
               {generating ? (
                 <>
