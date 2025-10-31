@@ -50,12 +50,12 @@ interface UserProfile {
 }
 
 const SettingSection: React.FC<{ title: string; icon: React.ReactNode; children: React.ReactNode }> = ({ title, icon, children }) => (
-  <div className="bg-white rounded-lg border border-gray-200 p-6">
+  <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 sm:p-6">
     <div className="flex items-center gap-3 mb-6">
-      <div className="p-2 bg-blue-100 rounded-lg text-blue-600">
+      <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg text-blue-600 dark:text-blue-400">
         {icon}
       </div>
-      <h2 className="text-xl font-semibold text-gray-900">{title}</h2>
+      <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">{title}</h2>
     </div>
     {children}
   </div>
@@ -148,10 +148,19 @@ export default function EnhancedSettingsPage() {
         ? { ...defaultPreferences, ...userData.preferences }
         : defaultPreferences
       
-      // Sync theme from database to ThemeProvider, but if no saved theme, use light
-      const savedTheme = mergedPreferences.theme || 'light'
-      if (savedTheme !== currentTheme) {
-        setThemeProvider(savedTheme as 'light' | 'dark' | 'system')
+      // Sync theme from database to ThemeProvider, but default to light if not set
+      // Only sync if we have a valid saved theme AND it's different from current
+      const savedTheme = mergedPreferences.theme
+      if (savedTheme && ['light', 'dark', 'system'].includes(savedTheme)) {
+        // Only update if different to avoid unnecessary updates
+        if (savedTheme !== currentTheme) {
+          setThemeProvider(savedTheme as 'light' | 'dark' | 'system')
+        }
+      } else {
+        // If no theme saved or invalid theme, ensure it's set to light
+        if (currentTheme !== 'light') {
+          setThemeProvider('light')
+        }
       }
       
       // Merge notification_preferences into preferences (for morning notifications)
@@ -296,10 +305,10 @@ export default function EnhancedSettingsPage() {
 
   if (loading) {
     return (
-      <div className="p-6">
+      <div className="p-4 sm:p-6">
         <div className="animate-pulse space-y-6">
-          <div className="h-8 bg-gray-200 rounded w-1/4"></div>
-          <div className="h-64 bg-gray-200 rounded"></div>
+          <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/4"></div>
+          <div className="h-64 bg-gray-200 dark:bg-gray-700 rounded"></div>
         </div>
       </div>
     )
@@ -307,9 +316,9 @@ export default function EnhancedSettingsPage() {
 
   if (!profile) {
     return (
-      <div className="p-6">
+      <div className="p-4 sm:p-6">
         <div className="text-center py-12">
-          <Settings className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+          <Settings className="h-12 w-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">Unable to load settings</h3>
           <p className="text-gray-600 dark:text-gray-400">Please try refreshing the page</p>
         </div>
@@ -318,18 +327,18 @@ export default function EnhancedSettingsPage() {
   }
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
-          <p className="text-gray-600 mt-2">Manage your account settings and preferences</p>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Settings</h1>
+          <p className="text-gray-600 dark:text-gray-400 mt-2">Manage your account settings and preferences</p>
         </div>
 
         {/* Navigation Tabs */}
         <div className="mb-6">
-          <div className="border-b border-gray-200">
-            <nav className="-mb-px flex space-x-8">
+          <div className="border-b border-gray-200 dark:border-gray-700">
+            <nav className="-mb-px flex space-x-4 sm:space-x-8 overflow-x-auto">
               {[
                 { id: 'profile', label: 'Profile', icon: User },
                 { id: 'preferences', label: 'Preferences', icon: Palette },
@@ -339,10 +348,10 @@ export default function EnhancedSettingsPage() {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as any)}
-                  className={`flex items-center gap-2 py-2 px-1 border-b-2 font-medium text-sm ${
+                  className={`flex items-center gap-2 py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap touch-manipulation transition-colors ${
                     activeTab === tab.id
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      ? 'border-blue-500 dark:border-blue-400 text-blue-600 dark:text-blue-400'
+                      : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
                   }`}
                 >
                   <tab.icon className="h-4 w-4" />
@@ -638,7 +647,7 @@ export default function EnhancedSettingsPage() {
                 <button
                   onClick={handleSavePreferences}
                   disabled={saving}
-                  className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
+                  className="bg-blue-600 dark:bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 disabled:opacity-50 flex items-center gap-2 touch-manipulation"
                 >
                   <Save className="h-4 w-4" />
                   {saving ? 'Saving...' : 'Save Notifications'}
@@ -653,7 +662,7 @@ export default function EnhancedSettingsPage() {
             <SettingSection title="Privacy Settings" icon={<Shield className="h-5 w-5" />}>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Profile Visibility</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Profile Visibility</label>
                   <select
                     value={profile.preferences.privacy.profileVisibility}
                     onChange={(e) => setProfile({ 
@@ -666,7 +675,7 @@ export default function EnhancedSettingsPage() {
                         } 
                       } 
                     })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                   >
                     <option value="public">Public</option>
                     <option value="team">Team Only</option>
@@ -708,7 +717,7 @@ export default function EnhancedSettingsPage() {
                 <button
                   onClick={handleSavePreferences}
                   disabled={saving}
-                  className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
+                  className="bg-blue-600 dark:bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 disabled:opacity-50 flex items-center gap-2 touch-manipulation"
                 >
                   <Save className="h-4 w-4" />
                   {saving ? 'Saving...' : 'Save Privacy Settings'}

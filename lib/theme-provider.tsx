@@ -21,16 +21,24 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>('light')
   const [mounted, setMounted] = useState(false)
 
-  // Load theme from localStorage on mount
+  // Load theme from localStorage on mount - Always default to light mode
   useEffect(() => {
     setMounted(true)
     const savedTheme = localStorage.getItem('theme') as Theme | null
     if (savedTheme && ['light', 'dark', 'system'].includes(savedTheme)) {
+      // Only use saved theme if it exists and is valid
+      // If 'system' was saved, respect it only after first load
       setThemeState(savedTheme)
     } else {
-      // Default to light mode (not system preference)
+      // Default to light mode ALWAYS on first load (not system preference)
       setThemeState('light')
       localStorage.setItem('theme', 'light')
+    }
+    
+    // Ensure document starts with light mode class (prevent dark flash)
+    const root = document.documentElement
+    if (!root.classList.contains('dark')) {
+      root.classList.remove('dark')
     }
   }, [])
 
