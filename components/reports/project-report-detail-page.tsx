@@ -173,10 +173,10 @@ export default function ProjectReportDetailPage() {
   }
 
   return (
-    <div className="min-h-full bg-gray-50 dark:bg-gray-900 -m-3 sm:-m-4 lg:-m-6 xl:-m-8">
+    <div className="min-h-full bg-gray-50 dark:bg-gray-900">
       <div className="flex flex-col lg:flex-row min-h-[calc(100vh-4rem)]">
         {/* Left Sidebar - Project Info */}
-        <div className="w-full lg:w-80 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col lg:sticky lg:top-0 lg:h-[calc(100vh-4rem)]">
+        <div className="w-full lg:w-80 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col lg:sticky lg:top-16 lg:h-[calc(100vh-4rem)]">
           {/* Back Button */}
           <div className="p-3 sm:p-4 border-b border-gray-200 dark:border-gray-700">
             <button
@@ -263,7 +263,7 @@ export default function ProjectReportDetailPage() {
 
         {/* Main Content Area */}
         <div className="flex-1 overflow-y-auto">
-          <div className="p-3 sm:p-4 lg:p-6 xl:p-8 pt-16 lg:pt-6">
+          <div className="p-3 sm:p-4 lg:p-6 xl:p-8">
             {/* Progress Circles */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 lg:gap-8 mb-6 sm:mb-8">
               {/* Overall Progress */}
