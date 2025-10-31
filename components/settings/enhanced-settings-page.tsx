@@ -143,17 +143,20 @@ export default function EnhancedSettingsPage() {
         ? { ...defaultPreferences, ...userData.preferences }
         : defaultPreferences
       
+      // Extract profile fields from preferences (since these columns don't exist in users table)
+      const profileData = mergedPreferences.profile || {}
+      
       // Build user profile from database and auth data
       const userProfile: UserProfile = {
         id: user.id,
         name: userData?.name || user.user_metadata?.name || user.email?.split('@')[0] || 'User',
         email: user.email || '',
-        phone: userData?.phone || user.user_metadata?.phone || '',
-        location: userData?.location || user.user_metadata?.location || '',
-        bio: userData?.bio || user.user_metadata?.bio || '',
+        phone: profileData.phone || user.user_metadata?.phone || '',
+        location: profileData.location || user.user_metadata?.location || '',
+        bio: profileData.bio || user.user_metadata?.bio || '',
         avatar_url: userData?.avatar_url || user.user_metadata?.avatar_url,
-        role: userData?.role || user.user_metadata?.role || 'Member',
-        department: userData?.department || user.user_metadata?.department || '',
+        role: profileData.role || user.user_metadata?.role || 'Member',
+        department: profileData.department || user.user_metadata?.department || '',
         timezone: userData?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
         preferences: mergedPreferences
       }
@@ -179,14 +182,23 @@ export default function EnhancedSettingsPage() {
     try {
       setSaving(true)
       
-      // Update the users table in database first
+      // Store profile fields in preferences.profile (since these columns don't exist in users table)
+      const updatedPreferences = {
+        ...profile.preferences,
+        profile: {
+          phone: profile.phone || '',
+          location: profile.location || '',
+          bio: profile.bio || '',
+          role: profile.role || 'Member',
+          department: profile.department || ''
+        }
+      }
+      
+      // Update the users table in database
+      // Only update name (which exists) and store other fields in preferences
       const { error: dbError } = await dataService.updateUserProfile(user.id, {
         name: profile.name,
-        phone: profile.phone,
-        location: profile.location,
-        bio: profile.bio,
-        role: profile.role,
-        department: profile.department
+        preferences: updatedPreferences
       })
       
       if (dbError) throw dbError
