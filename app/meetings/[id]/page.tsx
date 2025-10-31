@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import AppLayout from '@/components/layout/app-layout'
-import { ArrowLeft, Calendar, Clock, FileText, CheckSquare, Loader, AlertCircle, Trash2, Edit2 } from 'lucide-react'
+import { ArrowLeft, Calendar, Clock, FileText, CheckSquare, Loader, AlertCircle, Trash2, Edit2, RefreshCw } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 
 interface Meeting {
@@ -63,11 +63,22 @@ export default function MeetingDetailPage() {
         throw new Error('Database connection not available')
       }
 
-      // Load meeting
+      // Load meeting with recording session joined
       console.log('📋 Loading meeting:', meetingId)
       const { data: meetingData, error: meetingError } = await supabase
         .from('meetings')
-        .select('*')
+        .select(`
+          *,
+          recording_sessions (
+            id,
+            transcription_status,
+            transcription_text,
+            transcription_confidence,
+            duration,
+            created_at,
+            updated_at
+          )
+        `)
         .eq('id', meetingId)
         .single()
 
@@ -75,27 +86,68 @@ export default function MeetingDetailPage() {
       console.log('✅ Meeting loaded')
       console.log('   Summary:', meetingData.summary ? 'YES' : 'NO')
       console.log('   AI Insights:', meetingData.ai_insights ? 'YES' : 'NO')
+      console.log('   Recording Session ID:', meetingData.recording_session_id || 'NONE')
+      
       setMeeting(meetingData)
 
-      // Load recording session
+      // Load recording session - try multiple methods
       console.log('🎙️ Loading recording session...')
-      const { data: recordingData, error: recordingError } = await supabase
-        .from('recording_sessions')
-        .select('*')
-        .eq('metadata->>meetingId', meetingId)
-        .maybeSingle()
+      let recordingData = null
 
-      if (recordingError) {
-        console.log('⚠️ Recording session error:', recordingError.message)
+      // Method 1: Use recording_session_id from meeting if available
+      if (meetingData.recording_session_id) {
+        console.log('   Trying direct link via recording_session_id:', meetingData.recording_session_id)
+        const { data: directLinkData, error: directLinkError } = await supabase
+          .from('recording_sessions')
+          .select('*')
+          .eq('id', meetingData.recording_session_id)
+          .maybeSingle()
+
+        if (directLinkError) {
+          console.log('   ⚠️ Direct link error:', directLinkError.message)
+        } else if (directLinkData) {
+          console.log('   ✅ Found via direct link')
+          recordingData = directLinkData
+        }
+      }
+
+      // Method 2: Check if recording_sessions was joined in the query
+      if (!recordingData && meetingData.recording_sessions) {
+        const joinedSessions = Array.isArray(meetingData.recording_sessions) 
+          ? meetingData.recording_sessions 
+          : [meetingData.recording_sessions]
+        
+        if (joinedSessions.length > 0 && joinedSessions[0]) {
+          console.log('   ✅ Found via joined query')
+          recordingData = joinedSessions[0]
+        }
+      }
+
+      // Method 3: Fallback to metadata query
+      if (!recordingData) {
+        console.log('   Trying metadata query...')
+        const { data: metadataData, error: metadataError } = await supabase
+          .from('recording_sessions')
+          .select('*')
+          .eq('metadata->>meetingId', meetingId)
+          .maybeSingle()
+
+        if (metadataError) {
+          console.log('   ⚠️ Metadata query error:', metadataError.message)
+        } else if (metadataData) {
+          console.log('   ✅ Found via metadata query')
+          recordingData = metadataData
+        }
       }
 
       if (recordingData) {
         console.log('✅ Recording session found')
         console.log('   Status:', recordingData.transcription_status)
-        console.log('   Has transcript:', recordingData.transcription_text ? 'YES' : 'NO')
+        console.log('   Has transcript:', recordingData.transcription_text ? 'YES (' + recordingData.transcription_text.length + ' chars)' : 'NO')
         setRecording(recordingData)
       } else {
-        console.log('⚠️ No recording session found')
+        console.log('⚠️ No recording session found with any method')
+        setRecording(null)
       }
 
       // Load tasks
@@ -169,20 +221,20 @@ export default function MeetingDetailPage() {
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'urgent': return 'bg-red-100 text-red-800'
-      case 'high': return 'bg-orange-100 text-orange-800'
-      case 'medium': return 'bg-yellow-100 text-yellow-800'
-      case 'low': return 'bg-green-100 text-green-800'
-      default: return 'bg-gray-100 text-gray-800'
+      case 'urgent': return 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300'
+      case 'high': return 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300'
+      case 'medium': return 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300'
+      case 'low': return 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300'
+      default: return 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300'
     }
   }
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'completed': return 'bg-green-100 text-green-800'
-      case 'in_progress': return 'bg-blue-100 text-blue-800'
-      case 'todo': return 'bg-gray-100 text-gray-800'
-      default: return 'bg-gray-100 text-gray-800'
+      case 'completed': return 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300'
+      case 'in_progress': return 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300'
+      case 'todo': return 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300'
+      default: return 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300'
     }
   }
 
@@ -190,7 +242,7 @@ export default function MeetingDetailPage() {
     return (
       <AppLayout>
         <div className="flex items-center justify-center min-h-screen">
-          <Loader className="h-8 w-8 animate-spin text-blue-600" />
+          <Loader className="h-8 w-8 animate-spin text-blue-600 dark:text-blue-400" />
         </div>
       </AppLayout>
     )
@@ -199,13 +251,13 @@ export default function MeetingDetailPage() {
   if (!meeting) {
     return (
       <AppLayout>
-        <div className="flex flex-col items-center justify-center min-h-screen">
-          <AlertCircle className="h-12 w-12 text-gray-400 mb-4" />
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Meeting Not Found</h2>
-          <p className="text-gray-600 mb-6">The meeting you're looking for doesn't exist.</p>
+        <div className="flex flex-col items-center justify-center min-h-screen p-4">
+          <AlertCircle className="h-12 w-12 text-gray-400 dark:text-gray-500 mb-4" />
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">Meeting Not Found</h2>
+          <p className="text-gray-600 dark:text-gray-400 mb-6 text-center">The meeting you're looking for doesn't exist.</p>
           <button
             onClick={() => router.push('/meetings')}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+            className="bg-blue-600 dark:bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 touch-manipulation"
           >
             Back to Meetings
           </button>
@@ -216,22 +268,22 @@ export default function MeetingDetailPage() {
 
   return (
     <AppLayout>
-      <div className="p-8 max-w-7xl mx-auto">
+      <div className="p-3 sm:p-4 lg:p-6 xl:p-8 max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
+        <div className="mb-6 sm:mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
             <button
               onClick={() => router.push('/meetings')}
-              className="flex items-center gap-2 text-gray-600 hover:text-gray-900"
+              className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 touch-manipulation"
             >
               <ArrowLeft className="h-4 w-4" />
               Back to Meetings
             </button>
 
-            <div className="flex gap-3">
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
               <button
                 onClick={() => setEditing(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors touch-manipulation"
               >
                 <Edit2 className="h-4 w-4" />
                 Edit Meeting
@@ -239,7 +291,7 @@ export default function MeetingDetailPage() {
               <button
                 onClick={handleDeleteMeeting}
                 disabled={deleting}
-                className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="flex items-center justify-center gap-2 px-4 py-2 bg-red-600 dark:bg-red-500 text-white rounded-lg hover:bg-red-700 dark:hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors touch-manipulation"
               >
                 <Trash2 className="h-4 w-4" />
                 {deleting ? 'Deleting...' : 'Delete Meeting'}
@@ -247,9 +299,9 @@ export default function MeetingDetailPage() {
             </div>
           </div>
 
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">{meeting.title}</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100 mb-3 sm:mb-4">{meeting.title}</h1>
           
-          <div className="flex items-center gap-6 text-sm text-gray-600">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6 text-sm text-gray-600 dark:text-gray-400">
             <div className="flex items-center gap-2">
               <Calendar className="h-4 w-4" />
               <span>{formatDate(meeting.scheduled_at)}</span>
@@ -263,39 +315,42 @@ export default function MeetingDetailPage() {
           </div>
 
           {meeting.description && (
-            <p className="text-gray-600 mt-4">{meeting.description}</p>
+            <p className="text-gray-600 dark:text-gray-400 mt-4">{meeting.description}</p>
           )}
         </div>
 
         {/* Tabs */}
-        <div className="border-b border-gray-200 mb-6">
-          <div className="flex gap-6">
+        <div className="border-b border-gray-200 dark:border-gray-700 mb-6 overflow-x-auto">
+          <div className="flex gap-4 sm:gap-6 min-w-max">
             <button
               onClick={() => setActiveTab('summary')}
-              className={`pb-3 border-b-2 transition-colors ${
+              className={`pb-3 border-b-2 transition-colors whitespace-nowrap touch-manipulation ${
                 activeTab === 'summary'
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-gray-600 hover:text-gray-900'
+                  ? 'border-blue-600 dark:border-blue-400 text-blue-600 dark:text-blue-400'
+                  : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
               }`}
             >
               Summary
             </button>
             <button
               onClick={() => setActiveTab('transcript')}
-              className={`pb-3 border-b-2 transition-colors ${
+              className={`pb-3 border-b-2 transition-colors whitespace-nowrap touch-manipulation ${
                 activeTab === 'transcript'
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-gray-600 hover:text-gray-900'
+                  ? 'border-blue-600 dark:border-blue-400 text-blue-600 dark:text-blue-400'
+                  : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
               }`}
             >
               Transcript
             </button>
             <button
-              onClick={() => setActiveTab('tasks')}
-              className={`pb-3 border-b-2 transition-colors ${
+              onClick={() => {
+                setActiveTab('tasks')
+                loadMeetingData() // Refresh to get latest tasks
+              }}
+              className={`pb-3 border-b-2 transition-colors whitespace-nowrap touch-manipulation ${
                 activeTab === 'tasks'
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-gray-600 hover:text-gray-900'
+                  ? 'border-blue-600 dark:border-blue-400 text-blue-600 dark:text-blue-400'
+                  : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
               }`}
             >
               Tasks ({tasks.length})
@@ -305,27 +360,27 @@ export default function MeetingDetailPage() {
 
         {/* Content */}
         {activeTab === 'summary' && (
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             {/* AI Summary */}
             {meeting.summary && (
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                  <FileText className="h-5 w-5 text-blue-600" />
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 sm:p-6">
+                <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                   Meeting Summary
                 </h2>
-                <p className="text-gray-700 leading-relaxed">{meeting.summary}</p>
+                <p className="text-gray-700 dark:text-gray-300 leading-relaxed text-sm sm:text-base">{meeting.summary}</p>
               </div>
             )}
 
             {/* Key Points */}
             {meeting.ai_insights?.keyPoints && meeting.ai_insights.keyPoints.length > 0 && (
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-3">Key Points</h2>
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 sm:p-6">
+                <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Key Points</h2>
                 <ul className="space-y-2">
                   {meeting.ai_insights.keyPoints.map((point: string, index: number) => (
                     <li key={index} className="flex items-start gap-2">
-                      <span className="text-blue-600 mt-1">•</span>
-                      <span className="text-gray-700">{point}</span>
+                      <span className="text-blue-600 dark:text-blue-400 mt-1">•</span>
+                      <span className="text-gray-700 dark:text-gray-300 text-sm sm:text-base">{point}</span>
                     </li>
                   ))}
                 </ul>
@@ -334,13 +389,13 @@ export default function MeetingDetailPage() {
 
             {/* Action Items */}
             {meeting.action_items && meeting.action_items.length > 0 && (
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-3">Action Items</h2>
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 sm:p-6">
+                <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Action Items</h2>
                 <ul className="space-y-2">
                   {meeting.action_items.map((item: string, index: number) => (
                     <li key={index} className="flex items-start gap-2">
-                      <CheckSquare className="h-4 w-4 text-green-600 mt-1 flex-shrink-0" />
-                      <span className="text-gray-700">{item}</span>
+                      <CheckSquare className="h-4 w-4 text-green-600 dark:text-green-400 mt-1 flex-shrink-0" />
+                      <span className="text-gray-700 dark:text-gray-300 text-sm sm:text-base">{item}</span>
                     </li>
                   ))}
                 </ul>
@@ -350,32 +405,60 @@ export default function MeetingDetailPage() {
         )}
 
         {activeTab === 'transcript' && (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 sm:p-6">
             {recording?.transcription_text ? (
               <>
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-semibold text-gray-900">Full Transcript</h2>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+                  <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                    <FileText className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                    Full Transcript
+                  </h2>
                   {recording.transcription_confidence && (
-                    <span className="text-sm text-gray-600">
+                    <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                       Confidence: {Math.round(recording.transcription_confidence * 100)}%
                     </span>
                   )}
                 </div>
-                <div className="prose prose-sm max-w-none">
-                  <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">
+                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 sm:p-6 max-h-96 sm:max-h-[600px] overflow-y-auto">
+                  <p className="text-sm sm:text-base text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">
                     {recording.transcription_text}
                   </p>
                 </div>
+                <button
+                  onClick={loadMeetingData}
+                  className="mt-4 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 flex items-center gap-2 touch-manipulation"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  Refresh Transcript
+                </button>
               </>
             ) : recording?.transcription_status === 'processing' ? (
               <div className="text-center py-12">
-                <Loader className="h-8 w-8 animate-spin text-blue-600 mx-auto mb-4" />
-                <p className="text-gray-600">Transcription in progress...</p>
+                <Loader className="h-8 w-8 animate-spin text-blue-600 dark:text-blue-400 mx-auto mb-4" />
+                <p className="text-gray-600 dark:text-gray-400">Transcription in progress...</p>
+                <button
+                  onClick={loadMeetingData}
+                  className="mt-4 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 touch-manipulation"
+                >
+                  Check Again
+                </button>
               </div>
             ) : (
               <div className="text-center py-12">
-                <AlertCircle className="h-8 w-8 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600">No transcript available</p>
+                <AlertCircle className="h-12 w-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
+                <p className="text-gray-600 dark:text-gray-400 mb-4">No transcript available</p>
+                {recording && (
+                  <div className="text-sm text-gray-500 dark:text-gray-500 mb-4">
+                    Status: {recording.transcription_status || 'unknown'}
+                  </div>
+                )}
+                <button
+                  onClick={loadMeetingData}
+                  className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 flex items-center gap-2 mx-auto touch-manipulation"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  Refresh
+                </button>
               </div>
             )}
           </div>
@@ -387,27 +470,27 @@ export default function MeetingDetailPage() {
               tasks.map((task) => (
                 <div
                   key={task.id}
-                  className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow"
+                  className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 sm:p-6 hover:shadow-md transition-shadow"
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <h3 className="text-lg font-semibold text-gray-900">{task.title}</h3>
+                      <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
+                        <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100">{task.title}</h3>
                         {task.is_ai_generated && (
-                          <span className="px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                          <span className="px-2 py-1 rounded-full text-xs font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300">
                             AI Generated
                           </span>
                         )}
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(task.priority)}`}>
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(task.priority)} dark:bg-opacity-80`}>
                           {task.priority}
                         </span>
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(task.status)}`}>
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(task.status)} dark:bg-opacity-80`}>
                           {task.status.replace('_', ' ')}
                         </span>
                       </div>
-                      <p className="text-gray-600 text-sm">{task.description}</p>
+                      <p className="text-gray-600 dark:text-gray-400 text-sm sm:text-base">{task.description}</p>
                       {task.due_date && (
-                        <div className="flex items-center gap-2 mt-2 text-sm text-gray-500">
+                        <div className="flex items-center gap-2 mt-2 text-sm text-gray-500 dark:text-gray-400">
                           <Calendar className="h-4 w-4" />
                           <span>Due: {new Date(task.due_date).toLocaleDateString()}</span>
                         </div>
@@ -417,9 +500,9 @@ export default function MeetingDetailPage() {
                 </div>
               ))
             ) : (
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
-                <CheckSquare className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600">No tasks generated from this meeting yet</p>
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-8 sm:p-12 text-center">
+                <CheckSquare className="h-12 w-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
+                <p className="text-gray-600 dark:text-gray-400">No tasks generated from this meeting yet</p>
               </div>
             )}
           </div>
@@ -495,72 +578,72 @@ const EditMeetingModal: React.FC<{
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={onClose}>
-      <div className="bg-white rounded-lg p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-        <h2 className="text-xl font-bold text-gray-900 mb-4">Edit Meeting</h2>
+    <div className="fixed inset-0 bg-black bg-opacity-50 dark:bg-black/70 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-white dark:bg-gray-800 rounded-lg p-4 sm:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Edit Meeting</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Title *</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Title *</label>
             <input
               type="text"
               value={formData.title}
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
               required
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
             <textarea
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
               rows={3}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Date *</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date *</label>
             <input
               type="date"
               value={formData.date}
               onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
               required
             />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Start Time *</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Start Time *</label>
               <input
                 type="time"
                 value={formData.startTime}
                 onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                 required
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">End Time *</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">End Time *</label>
               <input
                 type="time"
                 value={formData.endTime}
                 onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                 required
               />
             </div>
           </div>
-          <div className="flex justify-end gap-3 pt-4 border-t">
+          <div className="flex flex-col sm:flex-row justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
+              className="px-4 py-2 text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 touch-manipulation"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              className="px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 touch-manipulation"
             >
               Save Changes
             </button>
