@@ -630,51 +630,71 @@ export default function EnhancedCalendarPage() {
           .order('scheduled_at', { ascending: false })
         
         if (!error && meetingsData) {
+          console.log(`🔍 Checking ${meetingsData.length} meetings for recordings...`)
+          
           // Aggressive filter: Exclude ANY meeting that could be a recording
           const manualMeetings = meetingsData.filter((meeting: any) => {
+            const meetingDebug = {
+              title: meeting.title,
+              hasRecordingSessionId: !!meeting.recording_session_id,
+              hasRecordingSessions: !!(meeting.recording_sessions && meeting.recording_sessions.length > 0),
+              description: meeting.description,
+              hasActionItems: !!(meeting.action_items && Array.isArray(meeting.action_items) && meeting.action_items.length > 0),
+              hasSummary: !!meeting.summary,
+              createdAgo: Math.round((Date.now() - new Date(meeting.created_at).getTime()) / (60 * 60 * 1000)) + 'h'
+            }
+            
             // 1. Exclude if it has a recording_session_id (it's definitely a recording)
             if (meeting.recording_session_id) {
-              console.log(`🚫 Excluding recording: "${meeting.title}" (has recording_session_id)`)
+              console.log(`🚫 Excluding recording: "${meeting.title}"`, meetingDebug)
               return false
             }
             
             // 2. Exclude if there's a related recording_sessions entry
             if (meeting.recording_sessions && meeting.recording_sessions.length > 0) {
-              console.log(`🚫 Excluding recording: "${meeting.title}" (has related recording_sessions)`)
+              console.log(`🚫 Excluding recording: "${meeting.title}"`, meetingDebug)
               return false
             }
             
             // 3. Exclude if description matches recording pattern ("AI will generate summary")
-            if (meeting.description === 'AI will generate summary' || meeting.description?.includes('AI will generate')) {
-              console.log(`🚫 Excluding recording: "${meeting.title}" (has recording description pattern)`)
+            if (meeting.description === 'AI will generate summary' || meeting.description?.toLowerCase().includes('ai will generate')) {
+              console.log(`🚫 Excluding recording: "${meeting.title}" (description pattern)`, meetingDebug)
               return false
             }
             
             // 4. Exclude if title matches recording pattern ("Recording [date/time]")
             if (meeting.title?.startsWith('Recording ') || meeting.title?.match(/^Recording \d{1,2}\/\d{1,2}\/\d{4}/)) {
-              console.log(`🚫 Excluding recording: "${meeting.title}" (matches recording title pattern)`)
+              console.log(`🚫 Excluding recording: "${meeting.title}" (title pattern)`, meetingDebug)
               return false
             }
             
-            // 5. Exclude if meeting has BOTH summary AND action_items (recordings always get both from AI)
-            // This is a strong indicator it's a recording, especially if created recently
-            if (meeting.summary && meeting.action_items && Array.isArray(meeting.action_items) && meeting.action_items.length > 0) {
+            // 5. MOST AGGRESSIVE: Exclude ANY meeting created in last 90 days with action_items
+            // Recordings ALWAYS get action_items from AI extraction, manually scheduled meetings rarely do
+            if (meeting.action_items && Array.isArray(meeting.action_items) && meeting.action_items.length > 0) {
               const createdDate = new Date(meeting.created_at)
-              const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
-              // If created in last 24 hours and has AI-generated content, it's likely a recording
-              if (createdDate > twentyFourHoursAgo) {
-                console.log(`🚫 Excluding recording: "${meeting.title}" (has AI summary + action_items, likely from recording)`)
+              const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000)
+              if (createdDate > ninetyDaysAgo) {
+                console.log(`🚫 Excluding recording: "${meeting.title}" (has action_items from AI)`, meetingDebug)
                 return false
               }
             }
             
-            // 6. Exclude if meeting has transcription-related fields (indicates it came from a recording)
-            // Recordings always have transcription data, manually scheduled meetings don't
-            if (meeting.summary && (meeting.summary.length > 500 || meeting.summary.includes('transcript'))) {
+            // 6. Exclude if meeting has BOTH summary AND action_items (recordings always get both from AI)
+            if (meeting.summary && meeting.action_items && Array.isArray(meeting.action_items) && meeting.action_items.length > 0) {
               const createdDate = new Date(meeting.created_at)
-              const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
-              if (createdDate > oneDayAgo) {
-                console.log(`🚫 Excluding recording: "${meeting.title}" (has long summary/transcript-like content)`)
+              const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000)
+              if (createdDate > ninetyDaysAgo) {
+                console.log(`🚫 Excluding recording: "${meeting.title}" (has AI summary + action_items)`, meetingDebug)
+                return false
+              }
+            }
+            
+            // 7. Exclude if meeting has transcription-related fields (indicates it came from a recording)
+            if (meeting.summary && (meeting.summary.length > 500 || meeting.summary.toLowerCase().includes('transcript'))) {
+              const createdDate = new Date(meeting.created_at)
+              const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000)
+              if (createdDate > ninetyDaysAgo) {
+                console.log(`🚫 Excluding recording: "${meeting.title}" (has transcript-like content)`, meetingDebug)
                 return false
               }
             }
@@ -750,12 +770,49 @@ export default function EnhancedCalendarPage() {
             if (!seenEventKeys.has(eventKey)) {
               seenEventKeys.add(eventKey)
               
+              // Properly handle timezone for synced events
+              // Events are stored in UTC (ISO format), JavaScript Date constructor handles this correctly
+              // But we need to ensure the date is created properly to avoid timezone shifts
+              let startDate: Date
+              let endDate: Date | undefined
+              
+              try {
+                // Parse the ISO string directly - JavaScript Date handles UTC correctly
+                startDate = new Date(syncedEvent.start_time)
+                
+                // Validate the date is valid
+                if (isNaN(startDate.getTime())) {
+                  console.warn(`⚠️ Invalid start_time for event: ${syncedEvent.title}`, syncedEvent.start_time)
+                  return // Skip invalid events
+                }
+                
+                if (syncedEvent.end_time) {
+                  endDate = new Date(syncedEvent.end_time)
+                  if (isNaN(endDate.getTime())) {
+                    console.warn(`⚠️ Invalid end_time for event: ${syncedEvent.title}`, syncedEvent.end_time)
+                    endDate = undefined
+                  }
+                }
+                
+                // Debug timezone issues - log if times seem off
+                const storedTime = new Date(syncedEvent.start_time)
+                const localTime = new Date() // Current time for comparison
+                const timeDiff = Math.abs(storedTime.getTime() - localTime.getTime())
+                // If the stored time is more than 24 hours different from now, log it for debugging
+                if (timeDiff > 24 * 60 * 60 * 1000) {
+                  console.log(`📅 Synced event "${syncedEvent.title}": stored=${syncedEvent.start_time}, parsed=${startDate.toISOString()}, local=${startDate.toLocaleString()}`)
+                }
+              } catch (dateError) {
+                console.error(`❌ Error parsing dates for event: ${syncedEvent.title}`, dateError)
+                return // Skip events with date parsing errors
+              }
+              
               calendarEvents.push({
                 id: `synced-${syncedEvent.id}`,
                 title: syncedEvent.title,
                 type: 'meeting',
-                start: new Date(syncedEvent.start_time),
-                end: syncedEvent.end_time ? new Date(syncedEvent.end_time) : undefined,
+                start: startDate,
+                end: endDate,
                 description: syncedEvent.description || '',
                 status: 'scheduled',
                 color: syncedEvent.sync?.color || 'purple',
@@ -1308,15 +1365,33 @@ export default function EnhancedCalendarPage() {
                             const dayEvents = filteredEvents.filter(event => {
                               if (event.allDay) return false
                               
+                              // Ensure we have a valid Date object
                               const eventDate = new Date(event.start)
+                              if (isNaN(eventDate.getTime())) {
+                                console.warn(`⚠️ Invalid event date:`, event)
+                                return false
+                              }
+                              
+                              // Get the hour in local time (Date object already handles timezone conversion)
                               const eventHour = eventDate.getHours()
                               
-                              // Compare dates as strings (year-month-day)
+                              // Compare dates as strings (year-month-day) - use local date components
                               const eventDay = `${eventDate.getFullYear()}-${String(eventDate.getMonth() + 1).padStart(2, '0')}-${String(eventDate.getDate()).padStart(2, '0')}`
                               const columnDay = `${columnDate.getFullYear()}-${String(columnDate.getMonth() + 1).padStart(2, '0')}-${String(columnDate.getDate()).padStart(2, '0')}`
                               
                               // Only show event if it starts on this specific day and in this specific hour
                               const isMatch = eventDay === columnDay && eventHour === hour
+                              
+                              // Debug logging for timezone issues (only for synced events in wrong slots)
+                              if (event.id?.startsWith('synced-') && isMatch) {
+                                const eventISO = eventDate.toISOString()
+                                const eventLocal = eventDate.toLocaleString()
+                                const expectedHour = hour
+                                if (eventHour !== expectedHour) {
+                                  console.warn(`⚠️ Timezone mismatch for "${event.title}": ISO=${eventISO}, Local=${eventLocal}, Expected hour=${expectedHour}, Got hour=${eventHour}`)
+                                }
+                              }
+                              
                               return isMatch
                             })
                             
@@ -1522,6 +1597,7 @@ export default function EnhancedCalendarPage() {
     </div>
   )
 }
+
 
 
 
