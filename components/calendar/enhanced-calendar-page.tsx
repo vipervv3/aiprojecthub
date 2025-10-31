@@ -616,31 +616,66 @@ export default function EnhancedCalendarPage() {
       // Load real meetings from Supabase (exclude recording meetings)
       if (supabase) {
         // IMPORTANT: Exclude recordings from calendar
-        // Recordings are identified by:
-        // 1. meeting_type = 'recording' (set immediately when created)
-        // 2. recording_session_id is NOT null (linked later)
-        // Only show manually scheduled meetings (NOT recordings)
+        // Load ALL meetings and filter aggressively in JavaScript
+        // This ensures we catch recordings even if recording_session_id isn't set yet
         const { data: meetingsData, error } = await supabase
           .from('meetings')
-          .select('*')
-          .is('recording_session_id', null) // Exclude meetings with recording_session_id
-          .neq('meeting_type', 'recording') // Exclude meetings with type 'recording'
+          .select(`
+            *,
+            recording_sessions:recording_session_id(id)
+          `)
           .order('scheduled_at', { ascending: false })
         
         if (!error && meetingsData) {
-          // Triple-check: Filter out any recordings that might have slipped through
-          // This is a backup filter to ensure recordings NEVER appear
+          // Aggressive filter: Exclude ANY meeting that could be a recording
           const manualMeetings = meetingsData.filter((meeting: any) => {
-            // Exclude if it has a recording_session_id (it's a recording)
+            // 1. Exclude if it has a recording_session_id (it's definitely a recording)
             if (meeting.recording_session_id) {
-              console.log(`🚫 Excluding recording from calendar: ${meeting.title} (has recording_session_id)`)
+              console.log(`🚫 Excluding recording: "${meeting.title}" (has recording_session_id)`)
               return false
             }
-            // Exclude if meeting_type is 'recording'
-            if (meeting.meeting_type === 'recording') {
-              console.log(`🚫 Excluding recording from calendar: ${meeting.title} (meeting_type is 'recording')`)
+            
+            // 2. Exclude if there's a related recording_sessions entry
+            if (meeting.recording_sessions && meeting.recording_sessions.length > 0) {
+              console.log(`🚫 Excluding recording: "${meeting.title}" (has related recording_sessions)`)
               return false
             }
+            
+            // 3. Exclude if description matches recording pattern ("AI will generate summary")
+            if (meeting.description === 'AI will generate summary' || meeting.description?.includes('AI will generate')) {
+              console.log(`🚫 Excluding recording: "${meeting.title}" (has recording description pattern)`)
+              return false
+            }
+            
+            // 4. Exclude if title matches recording pattern ("Recording [date/time]")
+            if (meeting.title?.startsWith('Recording ') || meeting.title?.match(/^Recording \d{1,2}\/\d{1,2}\/\d{4}/)) {
+              console.log(`🚫 Excluding recording: "${meeting.title}" (matches recording title pattern)`)
+              return false
+            }
+            
+            // 5. Exclude if meeting has BOTH summary AND action_items (recordings always get both from AI)
+            // This is a strong indicator it's a recording, especially if created recently
+            if (meeting.summary && meeting.action_items && Array.isArray(meeting.action_items) && meeting.action_items.length > 0) {
+              const createdDate = new Date(meeting.created_at)
+              const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
+              // If created in last 24 hours and has AI-generated content, it's likely a recording
+              if (createdDate > twentyFourHoursAgo) {
+                console.log(`🚫 Excluding recording: "${meeting.title}" (has AI summary + action_items, likely from recording)`)
+                return false
+              }
+            }
+            
+            // 6. Exclude if meeting has transcription-related fields (indicates it came from a recording)
+            // Recordings always have transcription data, manually scheduled meetings don't
+            if (meeting.summary && (meeting.summary.length > 500 || meeting.summary.includes('transcript'))) {
+              const createdDate = new Date(meeting.created_at)
+              const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
+              if (createdDate > oneDayAgo) {
+                console.log(`🚫 Excluding recording: "${meeting.title}" (has long summary/transcript-like content)`)
+                return false
+              }
+            }
+            
             return true
           })
           
