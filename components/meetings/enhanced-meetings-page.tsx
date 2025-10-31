@@ -134,10 +134,23 @@ const ViewMeetingModal: React.FC<ViewMeetingModalProps> = ({ meeting, onClose, o
 
           {meeting.notes && (
             <div>
-              <h3 className="text-sm font-medium text-gray-900 mb-2">Notes</h3>
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="text-sm text-gray-600 whitespace-pre-wrap">{meeting.notes}</p>
+              <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
+                <FileText className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                Transcript
+              </h3>
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-4 rounded-lg max-h-96 overflow-y-auto">
+                <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">
+                  {meeting.notes || 'No transcript available yet. Please wait for transcription to complete.'}
+                </p>
               </div>
+            </div>
+          )}
+          
+          {!meeting.notes && meeting.recording_url && (
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 p-4 rounded-lg">
+              <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                ⏳ Transcript is being processed. Please check back in a few minutes.
+              </p>
             </div>
           )}
 
@@ -219,24 +232,36 @@ export default function EnhancedMeetingsPage() {
           }
           
           // Transform Supabase data to match component interface
-          const transformedMeetings: Meeting[] = meetingsData.map((m: any) => ({
-            id: m.id,
-            title: m.title || 'Untitled Meeting',
-            description: m.description || m.summary || '',
-            date: new Date(m.scheduled_at).toISOString().split('T')[0],
-            start_time: new Date(m.scheduled_at).toTimeString().slice(0, 5),
-            end_time: new Date(new Date(m.scheduled_at).getTime() + (m.duration || 30) * 60000).toTimeString().slice(0, 5),
-            location: m.location,
-            meeting_type: 'video_call', // Default for recordings
-            status: 'completed', // Recordings are always completed
-            attendees: Array.isArray(m.attendees) ? m.attendees : [],
-            project_id: m.project_id,
-            agenda: Array.isArray(m.action_items) ? m.action_items : [],
-            notes: m.recording_sessions?.[0]?.transcription_text || m.summary || '',
-            recording_url: m.recording_url,
-            created_at: m.created_at,
-            updated_at: m.updated_at
-          }))
+          const transformedMeetings: Meeting[] = meetingsData.map((m: any) => {
+            // Get transcription text - handle both array and object formats
+            let transcriptionText = ''
+            if (m.recording_sessions) {
+              if (Array.isArray(m.recording_sessions) && m.recording_sessions.length > 0) {
+                transcriptionText = m.recording_sessions[0]?.transcription_text || ''
+              } else if (m.recording_sessions.transcription_text) {
+                transcriptionText = m.recording_sessions.transcription_text
+              }
+            }
+            
+            return {
+              id: m.id,
+              title: m.title || 'Untitled Meeting',
+              description: m.description || m.summary || '',
+              date: new Date(m.scheduled_at).toISOString().split('T')[0],
+              start_time: new Date(m.scheduled_at).toTimeString().slice(0, 5),
+              end_time: new Date(new Date(m.scheduled_at).getTime() + (m.duration || 30) * 60000).toTimeString().slice(0, 5),
+              location: m.location,
+              meeting_type: 'video_call', // Default for recordings
+              status: 'completed', // Recordings are always completed
+              attendees: Array.isArray(m.attendees) ? m.attendees : [],
+              project_id: m.project_id,
+              agenda: Array.isArray(m.action_items) ? m.action_items : [],
+              notes: transcriptionText || m.summary || '',
+              recording_url: m.recording_url,
+              created_at: m.created_at,
+              updated_at: m.updated_at
+            }
+          })
           
           console.log(`✅ Transformed ${transformedMeetings.length} recordings for display`)
           if (transformedMeetings.length > 0) {

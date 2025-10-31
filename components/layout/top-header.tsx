@@ -67,13 +67,17 @@ function MobileSidebarOverlay({ isOpen, onClose }: { isOpen: boolean; onClose: (
     <>
       {/* Backdrop */}
       <div
-        className="lg:hidden fixed inset-0 bg-black/50 dark:bg-black/70 z-[100]"
+        className="lg:hidden fixed inset-0 bg-black/50 dark:bg-black/70"
+        style={{ zIndex: 9998 }}
         onClick={onClose}
       />
       {/* Sidebar */}
-      <div className={`lg:hidden fixed inset-y-0 left-0 z-[110] w-64 bg-white dark:bg-gray-900 shadow-2xl transform transition-transform duration-300 ease-in-out ${
-        isOpen ? 'translate-x-0' : '-translate-x-full'
-      }`}>
+      <div 
+        className={`lg:hidden fixed inset-y-0 left-0 w-64 bg-white dark:bg-gray-900 shadow-2xl transform transition-transform duration-300 ease-in-out ${
+          isOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+        style={{ zIndex: 9999 }}
+      >
         <Sidebar onMobileClose={onClose} />
       </div>
     </>
