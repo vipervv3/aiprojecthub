@@ -633,8 +633,9 @@ Based on their current tasks and progress, provide ${period === 'morning' ? 'a m
           // Check if user has email notifications enabled
           // Default to true if not set (users should receive notifications by default)
           const prefs = user.notification_preferences || {}
-          const emailEnabled = prefs.email_daily_summary !== false && prefs.email_daily_summary !== undefined ? prefs.email_daily_summary : true
-          const morningEnabled = prefs.morning_notifications !== false && prefs.morning_notifications !== undefined ? prefs.morning_notifications : true
+          // If the preference is explicitly false, disable. Otherwise default to true
+          const emailEnabled = prefs.email_daily_summary !== false
+          const morningEnabled = prefs.morning_notifications !== false
           
           // For morning period, check morning_notifications specifically
           // For other periods, check email_daily_summary
