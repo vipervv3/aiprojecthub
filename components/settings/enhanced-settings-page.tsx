@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { Settings, User, Bell, Shield, Palette, Globe, Save, Eye, EyeOff, Mail, Phone, MapPin, Calendar } from 'lucide-react'
 import { useAuth } from '@/app/providers'
+import { useTheme } from '@/lib/theme-provider'
 import { dataService } from '@/lib/data-service'
 import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
@@ -68,17 +69,17 @@ const ToggleSwitch: React.FC<{ enabled: boolean; onChange: (enabled: boolean) =>
 }) => (
   <div className="flex items-center justify-between py-3">
     <div className="flex-1">
-      <p className="text-sm font-medium text-gray-900">{label}</p>
-      {description && <p className="text-sm text-gray-600">{description}</p>}
+      <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{label}</p>
+      {description && <p className="text-sm text-gray-600 dark:text-gray-400">{description}</p>}
     </div>
     <button
       onClick={() => onChange(!enabled)}
-      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-        enabled ? 'bg-blue-600' : 'bg-gray-200'
+      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 touch-manipulation ${
+        enabled ? 'bg-blue-600 dark:bg-blue-500' : 'bg-gray-200 dark:bg-gray-700'
       }`}
     >
       <span
-        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+        className={`inline-block h-4 w-4 transform rounded-full bg-white dark:bg-gray-200 transition-transform ${
           enabled ? 'translate-x-6' : 'translate-x-1'
         }`}
       />
@@ -88,6 +89,7 @@ const ToggleSwitch: React.FC<{ enabled: boolean; onChange: (enabled: boolean) =>
 
 export default function EnhancedSettingsPage() {
   const { user } = useAuth()
+  const { theme: currentTheme, setTheme: setThemeProvider } = useTheme()
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -146,6 +148,12 @@ export default function EnhancedSettingsPage() {
         ? { ...defaultPreferences, ...userData.preferences }
         : defaultPreferences
       
+      // Sync theme from database to ThemeProvider, but if no saved theme, use light
+      const savedTheme = mergedPreferences.theme || 'light'
+      if (savedTheme !== currentTheme) {
+        setThemeProvider(savedTheme as 'light' | 'dark' | 'system')
+      }
+      
       // Merge notification_preferences into preferences (for morning notifications)
       const notificationPrefs = userData?.notification_preferences || {}
       // Set defaults to true if not set (users should receive notifications by default)
@@ -177,7 +185,7 @@ export default function EnhancedSettingsPage() {
     } finally {
       setLoading(false)
     }
-  }, [user])
+  }, [user, currentTheme, setThemeProvider])
 
   useEffect(() => {
     if (user) {
@@ -268,6 +276,11 @@ export default function EnhancedSettingsPage() {
       
       if (result.error) throw result.error
       
+      // Ensure theme is synced to ThemeProvider
+      if (profile.preferences.theme) {
+        setThemeProvider(profile.preferences.theme)
+      }
+      
       toast.success('Preferences saved successfully')
       
       // Reload profile data to confirm changes
@@ -297,8 +310,8 @@ export default function EnhancedSettingsPage() {
       <div className="p-6">
         <div className="text-center py-12">
           <Settings className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">Unable to load settings</h3>
-          <p className="text-gray-600">Please try refreshing the page</p>
+          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">Unable to load settings</h3>
+          <p className="text-gray-600 dark:text-gray-400">Please try refreshing the page</p>
         </div>
       </div>
     )
@@ -346,48 +359,48 @@ export default function EnhancedSettingsPage() {
             <SettingSection title="Personal Information" icon={<User className="h-5 w-5" />}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Full Name</label>
                   <input
                     type="text"
                     value={profile.name}
                     onChange={(e) => setProfile({ ...profile, name: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email</label>
                   <input
                     type="email"
                     value={profile.email}
                     disabled
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Phone</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Phone</label>
                   <input
                     type="tel"
                     value={profile.phone || ''}
                     onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Location</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Location</label>
                   <input
                     type="text"
                     value={profile.location || ''}
                     onChange={(e) => setProfile({ ...profile, location: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                   />
                 </div>
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Bio</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Bio</label>
                   <textarea
                     value={profile.bio || ''}
                     onChange={(e) => setProfile({ ...profile, bio: e.target.value })}
                     rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                   />
                 </div>
               </div>
@@ -395,7 +408,7 @@ export default function EnhancedSettingsPage() {
                 <button
                   onClick={handleSaveProfile}
                   disabled={saving}
-                  className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
+                  className="bg-blue-600 dark:bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 disabled:opacity-50 flex items-center gap-2 touch-manipulation"
                 >
                   <Save className="h-4 w-4" />
                   {saving ? 'Saving...' : 'Save Changes'}
@@ -410,25 +423,33 @@ export default function EnhancedSettingsPage() {
             <SettingSection title="Appearance" icon={<Palette className="h-5 w-5" />}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Theme</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Theme</label>
                   <select
-                    value={profile.preferences.theme}
-                    onChange={(e) => setProfile({ 
-                      ...profile, 
-                      preferences: { 
-                        ...profile.preferences, 
-                        theme: e.target.value as any 
-                      } 
-                    })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    value={profile.preferences.theme || 'light'}
+                    onChange={(e) => {
+                      const newTheme = e.target.value as 'light' | 'dark' | 'system'
+                      setProfile({ 
+                        ...profile, 
+                        preferences: { 
+                          ...profile.preferences, 
+                          theme: newTheme
+                        } 
+                      })
+                      // Immediately apply theme change
+                      setThemeProvider(newTheme)
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                   >
                     <option value="light">Light</option>
                     <option value="dark">Dark</option>
                     <option value="system">System</option>
                   </select>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Changes apply immediately
+                  </p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Language</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Language</label>
                   <select
                     value={profile.preferences.language}
                     onChange={(e) => setProfile({ 
@@ -438,7 +459,7 @@ export default function EnhancedSettingsPage() {
                         language: e.target.value 
                       } 
                     })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                   >
                     <option value="en">English</option>
                     <option value="es">Spanish</option>
@@ -447,7 +468,7 @@ export default function EnhancedSettingsPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Timezone</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Timezone</label>
                   <select
                     value={profile.preferences.timezone}
                     onChange={(e) => setProfile({ 
@@ -457,7 +478,7 @@ export default function EnhancedSettingsPage() {
                         timezone: e.target.value 
                       } 
                     })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                   >
                     <option value="America/Los_Angeles">Pacific Time</option>
                     <option value="America/Denver">Mountain Time</option>
@@ -469,7 +490,7 @@ export default function EnhancedSettingsPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Time Format</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Time Format</label>
                   <select
                     value={profile.preferences.timeFormat}
                     onChange={(e) => setProfile({ 
@@ -479,7 +500,7 @@ export default function EnhancedSettingsPage() {
                         timeFormat: e.target.value as any 
                       } 
                     })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                   >
                     <option value="12h">12-hour</option>
                     <option value="24h">24-hour</option>
@@ -490,7 +511,7 @@ export default function EnhancedSettingsPage() {
                 <button
                   onClick={handleSavePreferences}
                   disabled={saving}
-                  className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
+                  className="bg-blue-600 dark:bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 disabled:opacity-50 flex items-center gap-2 touch-manipulation"
                 >
                   <Save className="h-4 w-4" />
                   {saving ? 'Saving...' : 'Save Preferences'}
