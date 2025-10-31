@@ -78,7 +78,7 @@ function MobileSidebarOverlay({ isOpen, onClose }: { isOpen: boolean; onClose: (
         }`}
         style={{ zIndex: 9999 }}
       >
-        <Sidebar onMobileClose={onClose} />
+        <Sidebar onMobileClose={onClose} isMobile={true} />
       </div>
     </>
   )

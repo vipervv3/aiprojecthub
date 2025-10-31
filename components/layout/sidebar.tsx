@@ -24,7 +24,7 @@ import {
 } from 'lucide-react'
 import ThemeToggle from '@/components/theme-toggle'
 
-export default function Sidebar({ onMobileClose }: { onMobileClose?: () => void }) {
+export default function Sidebar({ onMobileClose, isMobile = false }: { onMobileClose?: () => void; isMobile?: boolean }) {
   const [collapsed, setCollapsed] = useState(false)
   const { user, signOut } = useAuth()
   const pathname = usePathname()
@@ -32,10 +32,10 @@ export default function Sidebar({ onMobileClose }: { onMobileClose?: () => void 
 
   // Close mobile menu when route changes
   useEffect(() => {
-    if (onMobileClose) {
+    if (onMobileClose && isMobile) {
       onMobileClose()
     }
-  }, [pathname, onMobileClose])
+  }, [pathname, onMobileClose, isMobile])
 
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, current: pathname === '/dashboard' },
@@ -76,11 +76,8 @@ export default function Sidebar({ onMobileClose }: { onMobileClose?: () => void 
     }, 500) // 500ms delay to show the "Signing out..." message
   }
 
-  return (
-    <>
-      {/* Desktop Sidebar - Only visible on lg+ screens */}
-      <div className="hidden lg:flex fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-gray-900 shadow-lg">
-      <div className="flex flex-col h-full">
+  const sidebarContent = (
+    <div className="flex flex-col h-full w-full">
         {/* Logo */}
         <div className="flex items-center justify-between h-16 px-6 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center space-x-3">
