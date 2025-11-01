@@ -1,12 +1,13 @@
 'use client'
 
 import React, { useState, useEffect, useCallback } from 'react'
-import { Settings, User, Bell, Shield, Palette, Globe, Save, Eye, EyeOff, Mail, Phone, MapPin, Calendar } from 'lucide-react'
+import { Settings, User, Bell, Shield, Palette, Globe, Save, Eye, EyeOff, Mail, Phone, MapPin, Calendar, Clock } from 'lucide-react'
 import { useAuth } from '@/app/providers'
 import { useTheme } from '@/lib/theme-provider'
 import { dataService } from '@/lib/data-service'
 import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
+import { getTimezoneOptions, getTimezoneLabel, detectTimezone } from '@/lib/utils/timezone-utils'
 
 interface UserPreferences {
   theme: 'light' | 'dark' | 'system'
@@ -94,6 +95,7 @@ export default function EnhancedSettingsPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [activeTab, setActiveTab] = useState<'profile' | 'preferences' | 'notifications' | 'privacy'>('profile')
+  const [timezoneOptions, setTimezoneOptions] = useState<{ region: string; timezones: { value: string; label: string }[] }[]>([])
 
   const loadUserProfile = useCallback(async () => {
     try {
@@ -147,6 +149,15 @@ export default function EnhancedSettingsPage() {
       const mergedPreferences = userData?.preferences 
         ? { ...defaultPreferences, ...userData.preferences }
         : defaultPreferences
+      
+      // Use timezone from database if available, otherwise detect
+      const userTimezone = userData?.timezone || detectTimezone()
+      if (!mergedPreferences.timezone || mergedPreferences.timezone === 'UTC') {
+        mergedPreferences.timezone = userTimezone
+      }
+      
+      // Load timezone options
+      setTimezoneOptions(getTimezoneOptions())
       
       // Sync theme from database to ThemeProvider, but default to light if not set
       // Only sync if we have a valid saved theme AND it's different from current
@@ -221,9 +232,10 @@ export default function EnhancedSettingsPage() {
       }
       
       // Update the users table in database
-      // Only update name (which exists) and store other fields in preferences
+      // Update name, timezone (which exists), and store other fields in preferences
       const { error: dbError } = await dataService.updateUserProfile(user.id, {
         name: profile.name,
+        timezone: profile.timezone || profile.preferences.timezone,
         preferences: updatedPreferences
       })
       
@@ -276,11 +288,11 @@ export default function EnhancedSettingsPage() {
         ...profile.preferences.notifications
       }
       
-      // Save preferences to database
+      // Save preferences to database (including timezone from profile)
       const result = await dataService.updateUserProfile(user.id, {
         preferences: profile.preferences,
         notification_preferences: notificationPreferences,
-        timezone: profile.preferences.timezone
+        timezone: profile.timezone || profile.preferences.timezone || detectTimezone()
       })
       
       if (result.error) throw result.error
@@ -479,24 +491,33 @@ export default function EnhancedSettingsPage() {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Timezone</label>
                   <select
-                    value={profile.preferences.timezone}
-                    onChange={(e) => setProfile({ 
-                      ...profile, 
-                      preferences: { 
-                        ...profile.preferences, 
-                        timezone: e.target.value 
-                      } 
-                    })}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                    value={profile.timezone || profile.preferences.timezone || detectTimezone()}
+                    onChange={(e) => {
+                      const newTimezone = e.target.value
+                      setProfile({ 
+                        ...profile,
+                        timezone: newTimezone,
+                        preferences: { 
+                          ...profile.preferences, 
+                          timezone: newTimezone
+                        } 
+                      })
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
                   >
-                    <option value="America/Los_Angeles">Pacific Time</option>
-                    <option value="America/Denver">Mountain Time</option>
-                    <option value="America/Chicago">Central Time</option>
-                    <option value="America/New_York">Eastern Time</option>
-                    <option value="Europe/London">London</option>
-                    <option value="Europe/Paris">Paris</option>
-                    <option value="Asia/Tokyo">Tokyo</option>
+                    {timezoneOptions.map(({ region, timezones }) => (
+                      <optgroup key={region} label={region}>
+                        {timezones.map(({ value, label }) => (
+                          <option key={value} value={value}>
+                            {label}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
                   </select>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Notifications will be sent at your local time
+                  </p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Time Format</label>
@@ -551,6 +572,40 @@ export default function EnhancedSettingsPage() {
                   label="Email Notifications"
                   description="Receive notifications via email (includes morning notifications)"
                 />
+                
+                {/* Morning Notification Time */}
+                <div className="py-3 border-t border-gray-200 dark:border-gray-700">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Clock className="h-4 w-4 text-gray-400" />
+                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Morning Notification Time</p>
+                      </div>
+                      <p className="text-xs text-gray-600 dark:text-gray-400">
+                        Daily summary will be sent at this time in your timezone
+                      </p>
+                    </div>
+                  </div>
+                  <input
+                    type="time"
+                    value={profile.preferences.morning_notification_time || '08:00'}
+                    onChange={(e) => {
+                      const time = e.target.value
+                      setProfile({ 
+                        ...profile, 
+                        preferences: { 
+                          ...profile.preferences, 
+                          morning_notification_time: time 
+                        } 
+                      })
+                    }}
+                    className="mt-2 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
+                  />
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Current timezone: {profile.timezone || 'UTC'}
+                  </p>
+                </div>
+                
                 <ToggleSwitch
                   enabled={profile.preferences.notifications.push}
                   onChange={(enabled) => setProfile({ 

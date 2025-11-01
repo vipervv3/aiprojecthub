@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import Groq from 'groq-sdk'
 import { Resend } from 'resend'
+import { isTimeToSend, getCurrentTimeInTimezone } from '@/lib/utils/timezone-utils'
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
 const resend = new Resend(process.env.RESEND_API_KEY)
@@ -640,10 +641,10 @@ Based on their current tasks and progress, provide ${period === 'morning' ? 'a m
     try {
       console.log(`🤖 Starting ${period} notification processing...`)
       
-      // Get all users with notifications enabled
+      // Get all users with notifications enabled (including timezone)
       const { data: users } = await supabaseAdmin
         .from('users')
-        .select('id, email, name, notification_preferences')
+        .select('id, email, name, timezone, notification_preferences')
 
       if (!users || users.length === 0) {
         console.log('No users found')
@@ -667,17 +668,41 @@ Based on their current tasks and progress, provide ${period === 'morning' ? 'a m
           
           // For morning period, check morning_notifications specifically
           // For other periods, check email_daily_summary
-          const shouldSend = period === 'morning' 
+          const shouldSendByPrefs = period === 'morning' 
             ? (emailEnabled && morningEnabled)
             : emailEnabled
           
-          if (shouldSend) {
-            console.log(`📧 Sending ${period} notification to ${user.email} (prefs: email_daily_summary=${prefs.email_daily_summary}, morning_notifications=${prefs.morning_notifications})`)
-            await this.sendIntelligentNotification(user.id, period)
-            successCount++
-          } else {
+          if (!shouldSendByPrefs) {
             console.log(`⏭️ Skipping ${period} notification for ${user.email} (notifications disabled)`)
+            continue
           }
+
+          // 🌍 TIMEZONE CHECK: Only send if it's the right time in user's timezone
+          const userTimezone = user.timezone || 'UTC'
+          
+          // Default notification times (can be customized per user later)
+          let desiredHour: number
+          let desiredMinute: number = 0
+          
+          if (period === 'morning') {
+            desiredHour = parseInt(prefs.morning_notification_time?.split(':')[0] || '8', 10)
+            desiredMinute = parseInt(prefs.morning_notification_time?.split(':')[1] || '0', 10)
+          } else if (period === 'midday') {
+            desiredHour = 13 // 1 PM
+          } else {
+            desiredHour = 18 // 6 PM
+          }
+
+          // Check if it's time to send for this user's timezone
+          if (!isTimeToSend(userTimezone, desiredHour, desiredMinute)) {
+            const currentTime = getCurrentTimeInTimezone(userTimezone)
+            console.log(`⏰ Skipping ${period} notification for ${user.email} - not yet time in ${userTimezone} (current: ${currentTime.hour}:${currentTime.minute.toString().padStart(2, '0')}, desired: ${desiredHour}:${desiredMinute.toString().padStart(2, '0')})`)
+            continue
+          }
+
+          console.log(`📧 Sending ${period} notification to ${user.email} at ${desiredHour}:${desiredMinute.toString().padStart(2, '0')} ${userTimezone} (prefs: email_daily_summary=${prefs.email_daily_summary}, morning_notifications=${prefs.morning_notifications})`)
+          await this.sendIntelligentNotification(user.id, period)
+          successCount++
         } catch (error) {
           console.error(`Failed to process ${period} notification for user ${user.id}:`, error)
           errorCount++

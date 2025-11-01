@@ -2,15 +2,15 @@
   "crons": [
     {
       "path": "/api/cron/morning-notifications",
-      "schedule": "0 8 * * *"
+      "schedule": "0 * * * *"
     },
     {
       "path": "/api/cron/midday-notifications",
-      "schedule": "0 13 * * *"
+      "schedule": "0 * * * *"
     },
     {
       "path": "/api/cron/evening-notifications",
-      "schedule": "0 18 * * *"
+      "schedule": "0 * * * *"
     },
     {
       "path": "/api/cron/task-reminders-hourly",
@@ -18,11 +18,11 @@
     },
     {
       "path": "/api/cron/task-reminders-daily",
-      "schedule": "0 8 * * *"
+      "schedule": "0 * * * *"
     },
     {
       "path": "/api/cron/overdue-task-alerts",
-      "schedule": "0 9 * * *"
+      "schedule": "0 * * * *"
     }
   ]
 }
