@@ -22,6 +22,27 @@ export const metadata: Metadata = {
     statusBarStyle: 'default',
     title: 'AI ProjectHub',
   },
+  other: {
+    'application-name': 'AI ProjectHub',
+    'mobile-web-app-capable': 'yes',
+    'theme-color': '#2563eb',
+    'msapplication-TileColor': '#2563eb',
+    'format-detection': 'telephone=no',
+  },
+  icons: {
+    icon: [
+      { url: '/icon-192x192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/icon-192x192.png', sizes: '32x32', type: 'image/png' },
+      { url: '/icon-192x192.png', sizes: '16x16', type: 'image/png' },
+    ],
+    apple: [
+      { url: '/icon-192x192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/icon-192x192.png', sizes: '180x180', type: 'image/png' },
+      { url: '/icon-192x192.png', sizes: '167x167', type: 'image/png' },
+      { url: '/icon-192x192.png', sizes: '152x152', type: 'image/png' },
+    ],
+    shortcut: '/icon-192x192.png',
+  },
 }
 
 export default function RootLayout({
@@ -32,31 +53,11 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        {/* PWA Meta Tags for iOS */}
+        {/* Additional PWA Meta Tags - Next.js metadata doesn't cover all of these */}
         <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <meta name="apple-mobile-web-app-title" content="AI ProjectHub" />
-        
-        {/* PWA Meta Tags for Android */}
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="mobile-web-app-capable" content="yes" />
-        <meta name="theme-color" content="#2563eb" />
-        <meta name="application-name" content="AI ProjectHub" />
-        <meta name="format-detection" content="telephone=no" />
-        
-        {/* Microsoft */}
-        <meta name="msapplication-TileColor" content="#2563eb" />
         <meta name="msapplication-tap-highlight" content="no" />
-        
-        {/* Apple Touch Icons - iOS */}
-        <link rel="apple-touch-icon" href="/icon-192x192.png" />
-        <link rel="apple-touch-icon" sizes="152x152" href="/icon-192x192.png" />
-        <link rel="apple-touch-icon" sizes="180x180" href="/icon-192x192.png" />
-        <link rel="apple-touch-icon" sizes="167x167" href="/icon-192x192.png" />
-        
-        {/* Favicon */}
-        <link rel="icon" type="image/png" sizes="32x32" href="/icon-192x192.png" />
-        <link rel="icon" type="image/png" sizes="16x16" href="/icon-192x192.png" />
-        <link rel="shortcut icon" href="/icon-192x192.png" />
       </head>
       <body className={inter.className}>
         <Providers>
