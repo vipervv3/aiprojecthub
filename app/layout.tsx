@@ -32,17 +32,20 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        {/* PWA Meta Tags */}
-        <meta name="application-name" content="AI ProjectHub" />
+        {/* PWA Meta Tags for iOS */}
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content="AI ProjectHub" />
-        <meta name="description" content="AI-powered project management platform" />
-        <meta name="format-detection" content="telephone=no" />
+        
+        {/* PWA Meta Tags for Android */}
         <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="theme-color" content="#2563eb" />
+        <meta name="application-name" content="AI ProjectHub" />
+        <meta name="format-detection" content="telephone=no" />
+        
+        {/* Microsoft */}
         <meta name="msapplication-TileColor" content="#2563eb" />
         <meta name="msapplication-tap-highlight" content="no" />
-        <meta name="theme-color" content="#2563eb" />
         
         {/* Apple Touch Icons - iOS */}
         <link rel="apple-touch-icon" href="/icon-192x192.png" />
@@ -54,9 +57,6 @@ export default function RootLayout({
         <link rel="icon" type="image/png" sizes="32x32" href="/icon-192x192.png" />
         <link rel="icon" type="image/png" sizes="16x16" href="/icon-192x192.png" />
         <link rel="shortcut icon" href="/icon-192x192.png" />
-        
-        {/* PWA Manifest */}
-        <link rel="manifest" href="/manifest.json" />
       </head>
       <body className={inter.className}>
         <Providers>
