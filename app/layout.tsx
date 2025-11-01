@@ -16,6 +16,12 @@ export const metadata: Metadata = {
     type: 'website',
     locale: 'en_US',
   },
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'AI ProjectHub',
+  },
 }
 
 export default function RootLayout({
