@@ -9,7 +9,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 // VAPID keys - should be in environment variables
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || ''
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || ''
-const VAPID_SUBJECT = process.env.NEXT_PUBLIC_APP_URL || 'mailto:admin@aiprojecthub.com'
+const VAPID_SUBJECT = process.env.VAPID_SUBJECT || 'mailto:admin@aiprojecthub.com'
 
 // Configure web-push with VAPID keys
 if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
