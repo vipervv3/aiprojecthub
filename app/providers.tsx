@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import type { User } from '@supabase/supabase-js'
 import { RecordingProvider } from './recording-provider'
 import { ThemeProvider } from '@/lib/theme-provider'
+import PushNotificationSetup from '@/components/push-notification-setup'
 
 interface AuthContextType {
   user: User | null
@@ -56,6 +57,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <ThemeProvider>
       <AuthContext.Provider value={{ user, loading, signOut }}>
         <RecordingProvider>
+          <PushNotificationSetup />
           {children}
         </RecordingProvider>
       </AuthContext.Provider>

@@ -2,6 +2,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import Groq from 'groq-sdk'
 import { Resend } from 'resend'
 import { isTimeToSend, getCurrentTimeInTimezone } from '@/lib/utils/timezone-utils'
+import { pushNotificationService } from '@/lib/services/push-notification-service'
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
 const resend = new Resend(process.env.RESEND_API_KEY)
@@ -285,19 +286,41 @@ Based on their current tasks and progress, provide ${period === 'morning' ? 'a m
         return
       }
       
-      console.log(`📧 Sending email to ${userData.user.email}...`)
+      // Check if push notifications are enabled
+      const pushEnabled = prefs.push_notifications !== false
       
-      try {
-        const emailResult = await resend.emails.send({
-          from: 'AI ProjectHub <noreply@omarb.in>',
-          to: [userData.user.email],
-          subject: `${timeConfig.greeting}, ${userData.user.name}! 🤖 Your ${period} update`,
-          html: emailHTML
-        })
-        console.log(`✅ Email sent successfully:`, emailResult)
-      } catch (emailError) {
-        console.error(`❌ Email sending failed:`, emailError)
-        throw emailError
+      // Send email notification
+      if (emailEnabled) {
+        console.log(`📧 Sending email to ${userData.user.email}...`)
+        
+        try {
+          const emailResult = await resend.emails.send({
+            from: 'AI ProjectHub <noreply@omarb.in>',
+            to: [userData.user.email],
+            subject: `${timeConfig.greeting}, ${userData.user.name}! 🤖 Your ${period} update`,
+            html: emailHTML
+          })
+          console.log(`✅ Email sent successfully:`, emailResult)
+        } catch (emailError) {
+          console.error(`❌ Email sending failed:`, emailError)
+          throw emailError
+        }
+      }
+
+      // Send push notification if enabled
+      if (pushEnabled) {
+        try {
+          console.log(`🔔 Sending push notification to user ${userId}...`)
+          await pushNotificationService.sendIntelligentNotification(
+            userId,
+            period,
+            aiMessage.substring(0, 200) // Truncate for push notification
+          )
+          console.log(`✅ Push notification sent successfully`)
+        } catch (pushError) {
+          console.error(`❌ Push notification failed (non-critical):`, pushError)
+          // Don't throw - push notifications are optional
+        }
       }
 
       // Create in-app notification

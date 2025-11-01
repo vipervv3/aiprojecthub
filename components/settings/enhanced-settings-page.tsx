@@ -8,6 +8,7 @@ import { dataService } from '@/lib/data-service'
 import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
 import { getTimezoneOptions, getTimezoneLabel, detectTimezone } from '@/lib/utils/timezone-utils'
+import { usePushNotifications } from '@/lib/hooks/use-push-notifications'
 
 interface UserPreferences {
   theme: 'light' | 'dark' | 'system'
@@ -96,6 +97,16 @@ export default function EnhancedSettingsPage() {
   const [saving, setSaving] = useState(false)
   const [activeTab, setActiveTab] = useState<'profile' | 'preferences' | 'notifications' | 'privacy'>('profile')
   const [timezoneOptions, setTimezoneOptions] = useState<{ region: string; timezones: { value: string; label: string }[] }[]>([])
+  
+  // Push notifications hook
+  const {
+    isSupported: pushSupported,
+    isSubscribed: pushSubscribed,
+    permission: pushPermission,
+    subscribe: subscribePush,
+    unsubscribe: unsubscribePush,
+    loading: pushLoading
+  } = usePushNotifications()
 
   const loadUserProfile = useCallback(async () => {
     try {
@@ -606,21 +617,88 @@ export default function EnhancedSettingsPage() {
                   </p>
                 </div>
                 
-                <ToggleSwitch
-                  enabled={profile.preferences.notifications.push}
-                  onChange={(enabled) => setProfile({ 
-                    ...profile, 
-                    preferences: { 
-                      ...profile.preferences, 
-                      notifications: { 
-                        ...profile.preferences.notifications, 
-                        push: enabled 
-                      } 
-                    } 
-                  })}
-                  label="Push Notifications"
-                  description="Receive push notifications in your browser"
-                />
+                <div className="py-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Push Notifications</p>
+                      <p className="text-xs text-gray-600 dark:text-gray-400">
+                        {pushSupported 
+                          ? 'Receive push notifications in your browser' 
+                          : 'Not supported in this browser. Use a modern browser like Chrome, Firefox, or Safari 16.4+.'}
+                        {!pushSupported && pushPermission === 'denied' && ' Notification permission denied. Enable it in browser settings.'}
+                      </p>
+                      {pushSubscribed && (
+                        <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                          ✅ Push notifications are active
+                        </p>
+                      )}
+                    </div>
+                    <button
+                      onClick={async () => {
+                        if (pushSubscribed) {
+                          await unsubscribePush()
+                          setProfile({
+                            ...profile,
+                            preferences: {
+                              ...profile.preferences,
+                              notifications: {
+                                ...profile.preferences.notifications,
+                                push: false
+                              }
+                            }
+                          })
+                        } else {
+                          const success = await subscribePush()
+                          if (success) {
+                            setProfile({
+                              ...profile,
+                              preferences: {
+                                ...profile.preferences,
+                                notifications: {
+                                  ...profile.preferences.notifications,
+                                  push: true
+                                }
+                              }
+                            })
+                          }
+                        }
+                      }}
+                      disabled={!pushSupported || pushLoading}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 touch-manipulation ${
+                        pushSubscribed ? 'bg-blue-600 dark:bg-blue-500' : 'bg-gray-200 dark:bg-gray-700'
+                      } ${!pushSupported || pushLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white dark:bg-gray-200 transition-transform ${
+                          pushSubscribed ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                  </div>
+                  {pushSupported && !pushSubscribed && (
+                    <button
+                      onClick={async () => {
+                        const success = await subscribePush()
+                        if (success) {
+                          setProfile({
+                            ...profile,
+                            preferences: {
+                              ...profile.preferences,
+                              notifications: {
+                                ...profile.preferences.notifications,
+                                push: true
+                              }
+                            }
+                          })
+                        }
+                      }}
+                      disabled={pushLoading}
+                      className="mt-2 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 underline touch-manipulation"
+                    >
+                      {pushLoading ? 'Setting up...' : 'Enable Push Notifications'}
+                    </button>
+                  )}
+                </div>
                 <ToggleSwitch
                   enabled={profile.preferences.notifications.sms}
                   onChange={(enabled) => setProfile({ 
