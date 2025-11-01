@@ -179,23 +179,27 @@ Based on their current tasks and progress, provide ${period === 'morning' ? 'a m
         .order('updated_at', { ascending: false })
         .limit(5)
 
-      // Get today's tasks
+      // Get today's tasks - get all active tasks for user
       const today = new Date()
       today.setHours(0, 0, 0, 0)
       const tomorrow = new Date(today)
       tomorrow.setDate(tomorrow.getDate() + 1)
 
+      // Get tasks - try both assignee_id and project owner_id
       const { data: tasks } = await supabaseAdmin
         .from('tasks')
         .select(`
           *,
-          projects!inner(*)
+          projects(*)
         `)
-        .eq('projects.owner_id', userId)
-        .gte('due_date', today.toISOString())
-        .lt('due_date', tomorrow.toISOString())
+        .or(`assignee_id.eq.${userId},projects.owner_id.eq.${userId}`)
+        .neq('status', 'completed')
         .is('completed_at', null)
         .order('priority', { ascending: false })
+        .order('due_date', { ascending: true })
+        .limit(20)
+      
+      console.log(`📋 Found ${tasks?.length || 0} active tasks for user`)
 
       // Get tasks completed today
       const { data: completedTasks } = await supabaseAdmin
