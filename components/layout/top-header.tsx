@@ -11,7 +11,7 @@ export default function TopHeader() {
 
   return (
     <>
-      <div className="fixed top-0 left-0 right-0 z-40 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
+      <div className="fixed top-0 left-0 lg:left-64 right-0 z-50 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
         <div className="flex items-center gap-3 px-3 sm:px-4 py-3 lg:px-6">
           {/* Hamburger Menu Button - Now in header */}
           <button

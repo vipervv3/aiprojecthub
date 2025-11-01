@@ -178,7 +178,7 @@ export default function Sidebar({ onMobileClose, isMobile = false }: { onMobileC
 
   // Desktop sidebar - only visible on lg+ screens
   return (
-    <div className="hidden lg:flex fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-gray-900 shadow-lg">
+    <div className="hidden lg:flex fixed inset-y-0 left-0 z-40 w-64 bg-white dark:bg-gray-900 shadow-lg">
       {sidebarContent}
     </div>
   )
