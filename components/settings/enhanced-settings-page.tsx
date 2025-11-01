@@ -626,11 +626,22 @@ export default function EnhancedSettingsPage() {
                           ? 'Receive push notifications in your browser' 
                           : 'Not supported in this browser. Use a modern browser like Chrome, Firefox, or Safari 16.4+.'}
                         {!pushSupported && pushPermission === 'denied' && ' Notification permission denied. Enable it in browser settings.'}
+                        {pushLoading && ' Loading...'}
                       </p>
                       {pushSubscribed && (
                         <p className="text-xs text-green-600 dark:text-green-400 mt-1">
                           ✅ Push notifications are active
                         </p>
+                      )}
+                      {!pushSupported && (
+                        <div className="mt-2 text-xs">
+                          <p className="text-amber-600 dark:text-amber-400 font-medium mb-1">ℹ️ Mobile Setup Required:</p>
+                          <ul className="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400">
+                            <li>iOS: Add to Home Screen, then open from Home Screen</li>
+                            <li>Android: Use Chrome or Firefox</li>
+                            <li>Must be on HTTPS (required for push notifications)</li>
+                          </ul>
+                        </div>
                       )}
                     </div>
                     <button

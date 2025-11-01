@@ -22,12 +22,48 @@ export function usePushNotifications() {
 
   // Check if push notifications are supported
   useEffect(() => {
-    if (typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window) {
+    if (typeof window === 'undefined') {
+      setIsSupported(false)
+      setLoading(false)
+      return
+    }
+
+    // Check for service worker and push manager support
+    const hasServiceWorker = 'serviceWorker' in navigator
+    const hasPushManager = 'PushManager' in window
+    
+    // iOS Safari requires the app to be added to Home Screen
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
+    const isStandalone = (window.navigator as any).standalone || 
+                         (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches)
+    
+    if (hasServiceWorker && hasPushManager) {
       setIsSupported(true)
       setPermission(Notification.permission)
+      
+      // Log diagnostic info
+      console.log('🔔 Push notification support check:', {
+        hasServiceWorker,
+        hasPushManager,
+        isIOS,
+        isStandalone,
+        permission: Notification.permission,
+        userAgent: navigator.userAgent
+      })
+      
+      // Warn on iOS if not standalone
+      if (isIOS && !isStandalone) {
+        console.warn('⚠️ iOS push notifications require adding to Home Screen. Share → Add to Home Screen')
+      }
     } else {
       setIsSupported(false)
       setLoading(false)
+      console.log('❌ Push notifications not supported:', {
+        hasServiceWorker,
+        hasPushManager,
+        isIOS,
+        isStandalone
+      })
     }
   }, [])
 
@@ -35,15 +71,29 @@ export function usePushNotifications() {
   useEffect(() => {
     if (isSupported) {
       fetch('/api/push/vapid-public-key')
-        .then(res => res.json())
+        .then(res => {
+          if (!res.ok) {
+            throw new Error(`Failed to fetch VAPID key: ${res.status}`)
+          }
+          return res.json()
+        })
         .then(data => {
           if (data.publicKey) {
             setVapidPublicKey(data.publicKey)
+            console.log('✅ VAPID public key loaded')
+          } else {
+            console.error('❌ No VAPID public key in response:', data)
           }
         })
         .catch(err => {
-          console.error('Error fetching VAPID key:', err)
+          console.error('❌ Error fetching VAPID key:', err)
+          setLoading(false)
         })
+        .finally(() => {
+          setLoading(false)
+        })
+    } else {
+      setLoading(false)
     }
   }, [isSupported])
 
@@ -91,8 +141,22 @@ export function usePushNotifications() {
       }
 
       if (!vapidPublicKey) {
-        toast.error('VAPID key not loaded. Please wait and try again.')
-        return false
+        console.error('❌ VAPID key not loaded')
+        toast.error('VAPID key not loaded. Please refresh the page and try again.')
+        // Try to fetch it again
+        try {
+          const res = await fetch('/api/push/vapid-public-key')
+          const data = await res.json()
+          if (data.publicKey) {
+            setVapidPublicKey(data.publicKey)
+            console.log('✅ VAPID key loaded on retry')
+          } else {
+            return false
+          }
+        } catch (err) {
+          console.error('❌ Failed to load VAPID key on retry:', err)
+          return false
+        }
       }
 
       if (!user) {
