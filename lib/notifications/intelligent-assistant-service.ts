@@ -205,14 +205,16 @@ Based on their current tasks and progress, provide ${period === 'morning' ? 'a m
         .gte('completed_at', today.toISOString())
         .lt('completed_at', tomorrow.toISOString())
 
-      // Get today's meetings
+      // Get today's meetings - try user_id first, but meetings might not have user_id
       const { data: meetings } = await supabaseAdmin
         .from('meetings')
         .select('*')
-        .eq('user_id', userId)
+        .or(`user_id.eq.${userId},created_at.gte.${new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()}`)
         .gte('scheduled_at', today.toISOString())
         .lt('scheduled_at', tomorrow.toISOString())
         .order('scheduled_at', { ascending: true })
+      
+      console.log(`📋 Found ${meetings?.length || 0} meetings today for user`)
 
       // Get recent AI insights (last 3 days)
       const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000)
@@ -273,12 +275,25 @@ Based on their current tasks and progress, provide ${period === 'morning' ? 'a m
       
       const timeConfig = this.getTimeOfDayConfig(new Date().getHours())
       
-      await resend.emails.send({
-        from: 'AI ProjectHub <noreply@omarb.in>',
-        to: [userData.user.email],
-        subject: `${timeConfig.greeting}, ${userData.user.name}! 🤖 Your ${period} update`,
-        html: emailHTML
-      })
+      if (!userData.user.email) {
+        console.error(`❌ No email address for user ${userId}`)
+        return
+      }
+      
+      console.log(`📧 Sending email to ${userData.user.email}...`)
+      
+      try {
+        const emailResult = await resend.emails.send({
+          from: 'AI ProjectHub <noreply@omarb.in>',
+          to: [userData.user.email],
+          subject: `${timeConfig.greeting}, ${userData.user.name}! 🤖 Your ${period} update`,
+          html: emailHTML
+        })
+        console.log(`✅ Email sent successfully:`, emailResult)
+      } catch (emailError) {
+        console.error(`❌ Email sending failed:`, emailError)
+        throw emailError
+      }
 
       // Create in-app notification
       await supabaseAdmin.from('notifications').insert({
