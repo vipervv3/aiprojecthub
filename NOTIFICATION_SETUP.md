@@ -2,7 +2,14 @@
 
 ## ✅ Automated Notifications Status
 
-Automated notifications are configured and working, but due to **Vercel Hobby plan limitations**, the cron job only runs **once per day** at 8 AM UTC.
+**Current Setup:** The notification system is ready and configured, but **Vercel Hobby plan only allows one cron job per day**.
+
+**To receive ALL three notifications (morning, midday, evening):**
+1. ✅ Use an external cron service (EasyCron, Cron-Job.org) - **Recommended**
+2. ✅ Upgrade to Vercel Pro plan
+3. ⚠️ Manual testing using `/api/cron/test-notifications`
+
+See `EXTERNAL_CRON_SETUP.md` for easy setup instructions!
 
 ## 🕐 How It Works
 
