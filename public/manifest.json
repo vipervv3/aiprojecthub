@@ -3,10 +3,12 @@
   "short_name": "ProjectHub",
   "description": "AI-powered project management platform",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#2563eb",
   "orientation": "portrait-primary",
+  "prefer_related_applications": false,
   "icons": [
     {
       "src": "/icon-192x192.png",
