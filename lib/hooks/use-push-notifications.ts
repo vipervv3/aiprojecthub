@@ -33,11 +33,26 @@ export function usePushNotifications() {
     const hasPushManager = 'PushManager' in window
     
     // iOS Safari requires the app to be added to Home Screen
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
-    const isStandalone = (window.navigator as any).standalone || 
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) // iPadOS 13+
+    const isStandalone = (window.navigator as any).standalone === true || 
                          (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches)
     
+    // Check if we're in a PWA context (standalone mode)
+    const isInAppBrowser = window.matchMedia('(display-mode: standalone)').matches ||
+                           (window.navigator as any).standalone === true ||
+                           document.referrer.includes('android-app://')
+    
     if (hasServiceWorker && hasPushManager) {
+      // On iOS, only support push if in standalone mode (added to Home Screen)
+      if (isIOS && !isStandalone) {
+        setIsSupported(false)
+        setLoading(false)
+        console.warn('⚠️ iOS push notifications require adding to Home Screen.')
+        console.log('📱 Steps: Share button → Add to Home Screen → Open from Home Screen icon')
+        return
+      }
+      
       setIsSupported(true)
       setPermission(Notification.permission)
       
@@ -47,14 +62,10 @@ export function usePushNotifications() {
         hasPushManager,
         isIOS,
         isStandalone,
+        isInAppBrowser,
         permission: Notification.permission,
-        userAgent: navigator.userAgent
+        userAgent: navigator.userAgent.substring(0, 100)
       })
-      
-      // Warn on iOS if not standalone
-      if (isIOS && !isStandalone) {
-        console.warn('⚠️ iOS push notifications require adding to Home Screen. Share → Add to Home Screen')
-      }
     } else {
       setIsSupported(false)
       setLoading(false)

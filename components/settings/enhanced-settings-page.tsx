@@ -634,14 +634,19 @@ export default function EnhancedSettingsPage() {
                         </p>
                       )}
                       {!pushSupported && (
-                        <div className="mt-2 text-xs">
-                          <p className="text-amber-600 dark:text-amber-400 font-medium mb-1">ℹ️ Mobile Setup Required:</p>
-                          <ul className="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400">
-                            <li>iOS: Add to Home Screen, then open from Home Screen</li>
-                            <li>Android: Use Chrome or Firefox</li>
-                            <li>Must be on HTTPS (required for push notifications)</li>
+                        <div className="mt-2 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
+                          <p className="text-amber-800 dark:text-amber-300 font-medium mb-2 text-sm">📱 Mobile Setup Required</p>
+                          <ul className="list-disc list-inside space-y-1 text-xs text-amber-700 dark:text-amber-400">
+                            <li><strong>iOS:</strong> Tap Share → "Add to Home Screen", then open from Home Screen</li>
+                            <li><strong>Android:</strong> Use Chrome browser</li>
+                            <li>Must be on HTTPS (already enabled on Vercel)</li>
                           </ul>
                         </div>
+                      )}
+                      {pushSupported && !pushSubscribed && !pushLoading && (
+                        <p className="mt-2 text-xs text-blue-600 dark:text-blue-400">
+                          💡 Tap the toggle or button below to enable push notifications
+                        </p>
                       )}
                     </div>
                     <button
@@ -677,7 +682,8 @@ export default function EnhancedSettingsPage() {
                       disabled={!pushSupported || pushLoading}
                       className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 touch-manipulation ${
                         pushSubscribed ? 'bg-blue-600 dark:bg-blue-500' : 'bg-gray-200 dark:bg-gray-700'
-                      } ${!pushSupported || pushLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      } ${!pushSupported || pushLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                      title={!pushSupported ? 'Push notifications not supported. See instructions below.' : pushSubscribed ? 'Disable push notifications' : 'Enable push notifications'}
                     >
                       <span
                         className={`inline-block h-4 w-4 transform rounded-full bg-white dark:bg-gray-200 transition-transform ${
@@ -686,9 +692,14 @@ export default function EnhancedSettingsPage() {
                       />
                     </button>
                   </div>
-                  {pushSupported && !pushSubscribed && (
+                  {/* Always show enable button if not subscribed, even if toggle is disabled */}
+                  {!pushSubscribed && (
                     <button
                       onClick={async () => {
+                        if (!pushSupported) {
+                          toast.error('Push notifications require setup. See instructions above.')
+                          return
+                        }
                         const success = await subscribePush()
                         if (success) {
                           setProfile({
@@ -704,9 +715,13 @@ export default function EnhancedSettingsPage() {
                         }
                       }}
                       disabled={pushLoading}
-                      className="mt-2 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 underline touch-manipulation"
+                      className={`mt-2 w-full sm:w-auto text-sm font-medium py-2 px-4 rounded-lg transition-colors touch-manipulation ${
+                        pushSupported && !pushLoading
+                          ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                          : 'bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+                      }`}
                     >
-                      {pushLoading ? 'Setting up...' : 'Enable Push Notifications'}
+                      {pushLoading ? '⏳ Setting up...' : pushSupported ? '🔔 Enable Push Notifications' : '⚠️ Setup Required (see instructions above)'}
                     </button>
                   )}
                 </div>
