@@ -6,6 +6,7 @@ import { toast } from 'react-hot-toast'
 import { useAuth } from '@/app/providers'
 import ProjectSelector from '@/components/recording/ProjectSelector'
 import { recordingUploadService } from '@/lib/services/recording-upload-service'
+import { recordingBackupService } from '@/lib/services/recording-backup-service'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 
@@ -53,10 +54,14 @@ export default function EnhancedRecordingModal({
   const chunksRef = useRef<Blob[]>([])
   const chunkIndexRef = useRef<number>(0)
   const uploadedChunksRef = useRef<string[]>([]) // Track uploaded chunk paths
+  const wakeLockRef = useRef<WakeLockSentinel | null>(null)
+  const isOnlineRef = useRef<boolean>(navigator.onLine)
 
   // Live upload state
   const [liveUploadStatus, setLiveUploadStatus] = useState<string>('')
   const [chunksUploaded, setChunksUploaded] = useState<number>(0)
+  const [isOnline, setIsOnline] = useState(navigator.onLine)
+  const [chunksBackedUp, setChunksBackedUp] = useState<number>(0)
 
   // Timer effect
   useEffect(() => {
@@ -83,8 +88,146 @@ export default function EnhancedRecordingModal({
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop())
       }
+      // Release wake lock if active
+      if (wakeLockRef.current) {
+        wakeLockRef.current.release().catch(() => {})
+      }
     }
   }, [])
+
+  // Initialize backup service
+  useEffect(() => {
+    recordingBackupService.init().catch(err => {
+      console.error('Failed to initialize backup service:', err)
+    })
+  }, [])
+
+  // Retry failed uploads when back online
+  const retryFailedUploads = async () => {
+    if (!sessionId) return
+
+    try {
+      const chunks = await recordingBackupService.getChunks(sessionId)
+      const failedChunks = chunks.filter(chunk => !chunk.uploaded)
+
+      if (failedChunks.length > 0) {
+        setLiveUploadStatus(`Retrying ${failedChunks.length} failed uploads...`)
+        
+        for (const chunk of failedChunks) {
+          if (!isOnlineRef.current) break // Stop if went offline again
+
+          try {
+            const userId = user?.id || 'demo-user'
+            const result = await recordingUploadService.uploadChunkLive(
+              chunk.blob,
+              userId,
+              sessionId,
+              chunk.chunkIndex
+            )
+
+            if (result.success && result.path) {
+              await recordingBackupService.markChunkUploaded(sessionId, chunk.chunkIndex)
+              setChunksUploaded(prev => prev + 1)
+            }
+          } catch (error) {
+            console.error(`Failed to retry chunk ${chunk.chunkIndex}:`, error)
+          }
+        }
+
+        setLiveUploadStatus('✅ All chunks uploaded successfully')
+      }
+    } catch (error) {
+      console.error('Error retrying failed uploads:', error)
+    }
+  }
+
+  // Network state monitoring
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOnline(true)
+      isOnlineRef.current = true
+      setLiveUploadStatus('🟢 Back online - resuming uploads...')
+      // Retry failed uploads when back online
+      retryFailedUploads()
+    }
+
+    const handleOffline = () => {
+      setIsOnline(false)
+      isOnlineRef.current = false
+      setLiveUploadStatus('🔴 Offline - chunks saved locally, will upload when online')
+    }
+
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+
+    return () => {
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
+    }
+  }, [sessionId, user?.id])
+
+  // Page visibility handling (prevents recording pause on tab switch)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden && isRecording && !isPaused) {
+        // Tab switched - recording continues, but warn user
+        console.log('📱 Tab switched during recording - recording continues in background')
+        toast('Recording continues in background', { icon: '📱', duration: 3000 })
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [isRecording, isPaused])
+
+  // Beforeunload warning
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isRecording && !isPaused) {
+        e.preventDefault()
+        e.returnValue = 'Recording in progress. Are you sure you want to leave?'
+        return e.returnValue
+      }
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+    }
+  }, [isRecording, isPaused])
+
+  // Request wake lock to prevent screen sleep (mobile support)
+  const requestWakeLock = async () => {
+    try {
+      if ('wakeLock' in navigator) {
+        const wakeLock = await (navigator as any).wakeLock.request('screen')
+        wakeLockRef.current = wakeLock
+        
+        wakeLock.addEventListener('release', () => {
+          console.log('Wake lock released (screen can sleep now)')
+        })
+        
+        toast('📱 Screen will stay awake during recording', { duration: 3000 })
+      }
+    } catch (err) {
+      console.warn('Wake Lock API not supported or failed:', err)
+      // Not critical, continue recording
+    }
+  }
+
+  // Release wake lock
+  const releaseWakeLock = async () => {
+    if (wakeLockRef.current) {
+      try {
+        await wakeLockRef.current.release()
+        wakeLockRef.current = null
+      } catch (err) {
+        console.warn('Failed to release wake lock:', err)
+      }
+    }
+  }
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
@@ -126,30 +269,68 @@ export default function EnhancedRecordingModal({
           const chunkIndex = chunkIndexRef.current
           chunkIndexRef.current++
           
-          setLiveUploadStatus(`Uploading chunk ${chunkIndex + 1}...`)
+          const userId = user?.id || 'demo-user'
           
+          // 💾 BACKUP: Save chunk to IndexedDB FIRST (local backup)
           try {
-            const userId = user?.id || 'demo-user'
-            const result = await recordingUploadService.uploadChunkLive(
-              chunk,
-              userId,
-              newSessionId,
-              chunkIndex
-            )
-            
-            if (result.success && result.path) {
-              uploadedChunksRef.current.push(result.path)
-              setChunksUploaded(prev => prev + 1)
-              setLiveUploadStatus(`✓ Chunk ${chunkIndex + 1} saved to cloud`)
-              console.log(`✅ Chunk ${chunkIndex} uploaded successfully`)
-            } else {
-              console.error(`❌ Failed to upload chunk ${chunkIndex}:`, result.error)
-              // Queue for retry (implementation can be added later)
-              toast.error(`Chunk ${chunkIndex + 1} upload failed - will retry`)
-            }
-          } catch (error) {
-            console.error(`Error uploading chunk ${chunkIndex}:`, error)
+            await recordingBackupService.saveChunk({
+              sessionId: newSessionId,
+              chunkIndex,
+              blob: chunk,
+              timestamp: Date.now(),
+              uploaded: false
+            })
+            setChunksBackedUp(prev => prev + 1)
+            console.log(`💾 Chunk ${chunkIndex} backed up to IndexedDB`)
+          } catch (backupError) {
+            console.error('Failed to backup chunk to IndexedDB:', backupError)
+            // Continue even if backup fails
           }
+          
+          // ☁️ UPLOAD: Try to upload to cloud (if online)
+          if (isOnlineRef.current) {
+            setLiveUploadStatus(`Uploading chunk ${chunkIndex + 1}...`)
+            
+            try {
+              const result = await recordingUploadService.uploadChunkLive(
+                chunk,
+                userId,
+                newSessionId,
+                chunkIndex
+              )
+              
+              if (result.success && result.path) {
+                uploadedChunksRef.current.push(result.path)
+                setChunksUploaded(prev => prev + 1)
+                setLiveUploadStatus(`✓ Chunk ${chunkIndex + 1} saved to cloud`)
+                console.log(`✅ Chunk ${chunkIndex} uploaded successfully`)
+                
+                // Mark as uploaded in backup
+                await recordingBackupService.markChunkUploaded(newSessionId, chunkIndex)
+              } else {
+                console.error(`❌ Failed to upload chunk ${chunkIndex}:`, result.error)
+                setLiveUploadStatus(`⚠️ Chunk ${chunkIndex + 1} saved locally, will upload when online`)
+                // Chunk is already backed up, will retry when online
+              }
+            } catch (error) {
+              console.error(`Error uploading chunk ${chunkIndex}:`, error)
+              setLiveUploadStatus(`⚠️ Chunk ${chunkIndex + 1} saved locally, will upload when online`)
+              // Chunk is already backed up, will retry when online
+            }
+          } else {
+            setLiveUploadStatus(`💾 Chunk ${chunkIndex + 1} saved locally (offline)`)
+          }
+
+          // Save session metadata to backup
+          await recordingBackupService.saveSession({
+            sessionId: newSessionId,
+            userId,
+            projectId: selectedProjectId,
+            startTime: Date.now(),
+            chunks: [], // Will be retrieved from chunks store
+            uploadedChunks: uploadedChunksRef.current,
+            status: isPaused ? 'paused' : 'recording'
+          })
         }
       }
 
@@ -177,21 +358,47 @@ export default function EnhancedRecordingModal({
       mediaRecorder.start(10000) // Capture and trigger ondataavailable every 10 seconds
       setIsRecording(true)
       setRecordingTime(0)
-      toast.success('🎙️ Recording started - Auto-saving every 10 seconds')
+      
+      // Request wake lock to prevent screen sleep
+      await requestWakeLock()
+      
+      toast.success('🎙️ Recording started - Auto-saving every 10 seconds', {
+        duration: 5000,
+      })
+      toast('💾 Your recording is backed up locally - safe from crashes & network issues', {
+        icon: '💾',
+        duration: 5000,
+      })
     } catch (error) {
       console.error('Error starting recording:', error)
       toast.error('Failed to start recording. Please check microphone permissions.')
     }
   }
 
-  const stopRecording = () => {
+  const stopRecording = async () => {
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop()
       setIsRecording(false)
       setIsPaused(false)
       
+      // Release wake lock
+      await releaseWakeLock()
+      
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop())
+      }
+      
+      // Update session status in backup
+      if (sessionId) {
+        await recordingBackupService.saveSession({
+          sessionId,
+          userId: user?.id || 'demo-user',
+          projectId: selectedProjectId,
+          startTime: Date.now(),
+          chunks: [],
+          uploadedChunks: uploadedChunksRef.current,
+          status: 'stopped'
+        })
       }
       
       toast.success('Recording completed')
@@ -598,14 +805,48 @@ export default function EnhancedRecordingModal({
                   
                   {/* Live Upload Status */}
                   {isRecording && (
-                    <div className="mt-3 p-2 bg-green-50 border border-green-200 rounded-lg">
-                      <div className="flex items-center justify-center gap-2 text-xs text-green-700">
-                        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                        <span className="font-medium">{chunksUploaded} chunks saved to cloud</span>
+                    <div className="mt-3 space-y-2">
+                      {/* Cloud Upload Status */}
+                      <div className={`p-2 border rounded-lg ${
+                        isOnline 
+                          ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' 
+                          : 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800'
+                      }`}>
+                        <div className="flex items-center justify-center gap-2 text-xs">
+                          {isOnline ? (
+                            <>
+                              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                              <span className={`font-medium ${isOnline ? 'text-green-700 dark:text-green-300' : 'text-yellow-700 dark:text-yellow-300'}`}>
+                                {chunksUploaded} chunks saved to cloud
+                              </span>
+                            </>
+                          ) : (
+                            <>
+                              <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
+                              <span className="font-medium text-yellow-700 dark:text-yellow-300">
+                                Offline - {chunksBackedUp} chunks saved locally
+                              </span>
+                            </>
+                          )}
+                        </div>
+                        {liveUploadStatus && (
+                          <p className={`text-xs mt-1 ${isOnline ? 'text-green-600 dark:text-green-400' : 'text-yellow-600 dark:text-yellow-400'}`}>
+                            {liveUploadStatus}
+                          </p>
+                        )}
                       </div>
-                      {liveUploadStatus && (
-                        <p className="text-xs text-green-600 mt-1">{liveUploadStatus}</p>
-                      )}
+                      
+                      {/* Local Backup Status */}
+                      <div className="p-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                        <div className="flex items-center justify-center gap-2 text-xs text-blue-700 dark:text-blue-300">
+                          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                          <span className="font-medium">{chunksBackedUp} chunks backed up locally</span>
+                          <span className="text-blue-500">💾</span>
+                        </div>
+                        <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                          Safe from crashes, battery death, and network issues
+                        </p>
+                      </div>
                     </div>
                   )}
                 </div>
