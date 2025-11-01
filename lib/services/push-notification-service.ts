@@ -13,7 +13,15 @@ const VAPID_SUBJECT = process.env.NEXT_PUBLIC_APP_URL || 'mailto:admin@aiproject
 
 // Configure web-push with VAPID keys
 if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
-  webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY)
+  try {
+    // Remove padding characters from VAPID keys if present
+    const cleanPublicKey = VAPID_PUBLIC_KEY.replace(/=/g, '')
+    const cleanPrivateKey = VAPID_PRIVATE_KEY.replace(/=/g, '')
+    webpush.setVapidDetails(VAPID_SUBJECT, cleanPublicKey, cleanPrivateKey)
+  } catch (error) {
+    console.error('Error setting VAPID details:', error)
+    // Don't throw - push notifications will just fail if keys are invalid
+  }
 }
 
 export interface PushSubscription {
