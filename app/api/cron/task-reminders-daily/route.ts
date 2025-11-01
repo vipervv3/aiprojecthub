@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { taskReminderService } from '@/lib/notifications/task-reminder-service'
 
+// Force dynamic rendering - prevents caching issues with cron jobs
+export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
+
 /**
  * Cron job: Check for tasks due in 1 day (tomorrow)
  * Runs: Daily at 8:00 AM UTC

@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { intelligentAssistant } from '@/lib/notifications/intelligent-assistant-service'
 
+// Force dynamic rendering - prevents caching issues with cron jobs
+export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
+
 export async function GET(request: NextRequest) {
   try {
     // Vercel cron jobs are automatically authenticated by Vercel
