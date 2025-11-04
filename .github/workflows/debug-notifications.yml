@@ -1,0 +1,67 @@
+name: Debug Notifications (Test)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  debug-test:
+    name: Debug Notification Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    
+    steps:
+      - name: Show Configuration
+        run: |
+          echo "========================================="
+          echo "CONFIGURATION:"
+          echo "========================================="
+          echo "VERCEL_APP_URL: ${{ secrets.VERCEL_APP_URL }}"
+          echo "CRON_SECRET: (hidden - ${#CRON_SECRET} characters)"
+          echo "========================================="
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+      
+      - name: Test Morning Notifications Endpoint
+        run: |
+          echo "========================================="
+          echo "TESTING MORNING NOTIFICATIONS"
+          echo "========================================="
+          echo ""
+          echo "URL: ${{ secrets.VERCEL_APP_URL }}/api/cron/morning-notifications"
+          echo ""
+          
+          response=$(curl -s -w "\n%{http_code}" \
+            -X GET \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.VERCEL_APP_URL }}/api/cron/morning-notifications")
+          
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+          
+          echo "========================================="
+          echo "RESPONSE:"
+          echo "========================================="
+          echo "Status Code: $http_code"
+          echo ""
+          echo "Response Body:"
+          echo "$body"
+          echo ""
+          echo "========================================="
+          
+          if [ "$http_code" -eq 200 ]; then
+            echo "✅ SUCCESS! Notifications sent!"
+          else
+            echo "❌ FAILED with status $http_code"
+            echo ""
+            echo "Common Issues:"
+            echo "- 401: CRON_SECRET doesn't match"
+            echo "- 404: URL is wrong or endpoint doesn't exist"
+            echo "- 500: Server error (check Vercel logs)"
+            echo ""
+            echo "Next Steps:"
+            echo "1. Check VERCEL_APP_URL is correct"
+            echo "2. Verify CRON_SECRET matches your .env.local"
+            echo "3. Check Vercel environment variables are set"
+            echo "4. View Vercel function logs for details"
+          fi
+

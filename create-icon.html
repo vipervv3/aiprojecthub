@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>AI ProjectHub Icon Generator</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    padding: 20px;
+    background: #f0f0f0;
+  }
+  .container {
+    max-width: 800px;
+    margin: 0 auto;
+    background: white;
+    padding: 30px;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  }
+  h1 {
+    color: #2563eb;
+    text-align: center;
+  }
+  .instructions {
+    background: #e0f2fe;
+    padding: 15px;
+    border-radius: 5px;
+    margin-bottom: 20px;
+  }
+  .icon-preview {
+    display: flex;
+    justify-content: center;
+    gap: 30px;
+    margin: 30px 0;
+  }
+  .icon-box {
+    text-align: center;
+  }
+  .icon {
+    margin: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+    font-weight: 700;
+    color: white;
+    border-radius: 20px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+  }
+  .icon-512 {
+    width: 512px;
+    height: 512px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    font-size: 220px;
+  }
+  .icon-192 {
+    width: 192px;
+    height: 192px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    font-size: 82px;
+  }
+  .download-btn {
+    background: #2563eb;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+    margin-top: 10px;
+  }
+  .download-btn:hover {
+    background: #1d4ed8;
+  }
+  ol {
+    line-height: 1.8;
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <h1>📱 AI ProjectHub - App Icon Generator</h1>
+  
+  <div class="instructions">
+    <strong>📋 Instructions:</strong>
+    <ol>
+      <li>Right-click on each icon below</li>
+      <li>Select "Save image as..."</li>
+      <li>Save as <code>icon-512x512.png</code> or <code>icon-192x192.png</code></li>
+      <li>Put both files in your <code>public/</code> folder</li>
+      <li>Deploy to Vercel and test on your phone!</li>
+    </ol>
+  </div>
+
+  <div class="icon-preview">
+    <div class="icon-box">
+      <div class="icon icon-512" id="icon512">AP</div>
+      <p><strong>512x512</strong></p>
+      <button class="download-btn" onclick="downloadIcon('icon512', 'icon-512x512.png', 512)">📥 Download 512x512</button>
+    </div>
+    
+    <div class="icon-box">
+      <div class="icon icon-192" id="icon192">AP</div>
+      <p><strong>192x192</strong></p>
+      <button class="download-btn" onclick="downloadIcon('icon192', 'icon-192x192.png', 192)">📥 Download 192x192</button>
+    </div>
+  </div>
+
+  <div class="instructions" style="background: #fef3c7;">
+    <strong>💡 Pro Tip:</strong><br>
+    You can customize the text, colors, or use an emoji by editing this HTML file!
+    <br><br>
+    Change <code>AP</code> to any text or emoji you want (🚀, 📊, 📱, etc.)
+  </div>
+</div>
+
+<script>
+function downloadIcon(elementId, filename, size) {
+  const element = document.getElementById(elementId);
+  
+  // Create a canvas
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  
+  // Create gradient
+  const gradient = ctx.createLinearGradient(0, 0, size, size);
+  gradient.addColorStop(0, '#667eea');
+  gradient.addColorStop(1, '#764ba2');
+  
+  // Fill background
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, size, size);
+  
+  // Draw text
+  ctx.fillStyle = 'white';
+  ctx.font = `bold ${size * 0.43}px -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('AP', size / 2, size / 2);
+  
+  // Download
+  canvas.toBlob(function(blob) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    alert('✅ Downloaded ' + filename + '!\n\nNow place it in your public/ folder.');
+  });
+}
+</script>
+
+</body>
+</html>
+

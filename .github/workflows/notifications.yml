@@ -1,0 +1,146 @@
+name: Automated Notifications
+
+on:
+  schedule:
+    # Morning notifications - 8:00 AM UTC
+    - cron: '0 8 * * *'
+    # Midday notifications - 1:00 PM UTC  
+    - cron: '0 13 * * *'
+    # Evening notifications - 6:00 PM UTC
+    - cron: '0 18 * * *'
+    # Task reminders - 9:00 AM UTC
+    - cron: '0 9 * * *'
+  workflow_dispatch:
+    inputs:
+      notification_type:
+        description: 'Which notification to send'
+        required: false
+        default: 'morning'
+        type: choice
+        options:
+          - morning
+          - midday
+          - evening
+          - task-reminders
+          - all
+
+jobs:
+  morning-notifications:
+    name: Morning Notifications
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: |
+      (github.event.schedule == '0 8 * * *') ||
+      (github.event_name == 'workflow_dispatch' && (github.event.inputs.notification_type == 'morning' || github.event.inputs.notification_type == 'all'))
+    
+    steps:
+      - name: Send Morning Notifications
+        run: |
+          echo "🌅 Triggering morning notifications..."
+          response=$(curl -s -w "\n%{http_code}" \
+            -X GET \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.VERCEL_APP_URL }}/api/cron/morning-notifications")
+          
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+          
+          echo "Response status: $http_code"
+          echo "Response body: $body"
+          
+          if [ "$http_code" -ne 200 ]; then
+            echo "❌ Morning notifications failed with status $http_code"
+            exit 1
+          else
+            echo "✅ Morning notifications sent successfully"
+          fi
+
+  midday-notifications:
+    name: Midday Notifications
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: |
+      (github.event.schedule == '0 13 * * *') ||
+      (github.event_name == 'workflow_dispatch' && (github.event.inputs.notification_type == 'midday' || github.event.inputs.notification_type == 'all'))
+    
+    steps:
+      - name: Send Midday Notifications
+        run: |
+          echo "☀️ Triggering midday notifications..."
+          response=$(curl -s -w "\n%{http_code}" \
+            -X GET \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.VERCEL_APP_URL }}/api/cron/midday-notifications")
+          
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+          
+          echo "Response status: $http_code"
+          echo "Response body: $body"
+          
+          if [ "$http_code" -ne 200 ]; then
+            echo "❌ Midday notifications failed with status $http_code"
+            exit 1
+          else
+            echo "✅ Midday notifications sent successfully"
+          fi
+
+  evening-notifications:
+    name: Evening Notifications
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: |
+      (github.event.schedule == '0 18 * * *') ||
+      (github.event_name == 'workflow_dispatch' && (github.event.inputs.notification_type == 'evening' || github.event.inputs.notification_type == 'all'))
+    
+    steps:
+      - name: Send Evening Notifications
+        run: |
+          echo "🌙 Triggering evening notifications..."
+          response=$(curl -s -w "\n%{http_code}" \
+            -X GET \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.VERCEL_APP_URL }}/api/cron/evening-notifications")
+          
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+          
+          echo "Response status: $http_code"
+          echo "Response body: $body"
+          
+          if [ "$http_code" -ne 200 ]; then
+            echo "❌ Evening notifications failed with status $http_code"
+            exit 1
+          else
+            echo "✅ Evening notifications sent successfully"
+          fi
+
+  task-reminders:
+    name: Task Reminders
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: |
+      (github.event.schedule == '0 9 * * *') ||
+      (github.event_name == 'workflow_dispatch' && (github.event.inputs.notification_type == 'task-reminders' || github.event.inputs.notification_type == 'all'))
+    
+    steps:
+      - name: Send Task Reminders
+        run: |
+          echo "⏰ Triggering task reminders..."
+          response=$(curl -s -w "\n%{http_code}" \
+            -X GET \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.VERCEL_APP_URL }}/api/cron/task-reminders")
+          
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+          
+          echo "Response status: $http_code"
+          echo "Response body: $body"
+          
+          if [ "$http_code" -ne 200 ]; then
+            echo "❌ Task reminders failed with status $http_code"
+            exit 1
+          else
+            echo "✅ Task reminders sent successfully"
+          fi
