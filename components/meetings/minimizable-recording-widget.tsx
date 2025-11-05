@@ -281,37 +281,112 @@ export default function MinimizableRecordingWidget({
       formData.append('userId', user.id)
       formData.append('projectId', selectedProjectId)
       
-      console.log('📤 Uploading via /api/recordings...')
-      console.log('   Endpoint: /api/recordings')
-      console.log('   File size:', blob.size, 'bytes (', (blob.size / 1024 / 1024).toFixed(2), 'MB)')
+      // ✅ For large files (>20MB), upload directly to Supabase Storage to avoid Next.js body size limits
+      const fileSizeMB = blob.size / 1024 / 1024
+      const useDirectUpload = fileSizeMB > 20
       
-      const response = await fetch('/api/recordings', {
-        method: 'POST',
-        body: formData,
-      })
-
-      console.log('📡 Upload response status:', response.status)
-      console.log('   Response OK:', response.ok)
+      console.log(`📤 Uploading ${useDirectUpload ? 'directly to Supabase' : 'via /api/recordings'}...`)
+      console.log('   File size:', blob.size, 'bytes (', fileSizeMB.toFixed(2), 'MB)')
+      console.log('   Upload method:', useDirectUpload ? 'Direct to Supabase' : 'Via API route')
       
       let result
-      try {
-        result = await response.json()
-        console.log('📡 Upload response data:', result)
-      } catch (parseError) {
-        const text = await response.text()
-        console.error('❌ Failed to parse response as JSON:', parseError)
-        console.error('   Raw response:', text.substring(0, 500))
-        throw new Error(`Server error (${response.status}): ${text.substring(0, 200)}`)
-      }
+      
+      if (useDirectUpload) {
+        // ✅ Direct upload to Supabase Storage (bypasses Next.js body size limit)
+        console.log('📤 Using direct Supabase upload for large file...')
+        
+        const timestamp = Date.now()
+        const fileName = `recording_${timestamp}.webm`
+        const filePath = `recordings/${user.id}/${fileName}`
+        
+        // Upload directly to Supabase Storage
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('meeting-recordings')
+          .upload(filePath, blob, {
+            contentType: 'audio/webm',
+            upsert: false,
+          })
+        
+        if (uploadError) {
+          console.error('❌ Direct upload failed:', uploadError)
+          throw new Error(`Upload failed: ${uploadError.message}`)
+        }
+        
+        console.log('✅ File uploaded directly to Supabase Storage')
+        
+        // Get public URL
+        const { data: urlData } = supabase.storage
+          .from('meeting-recordings')
+          .getPublicUrl(filePath)
+        
+        const publicUrl = urlData.publicUrl
+        
+        // Create recording session via API (metadata only, no file)
+        const tempTitle = `Recording ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`
+        const sessionResponse = await fetch('/api/recordings/create-session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: tempTitle,
+            duration: recordingTime,
+            userId: user.id,
+            projectId: selectedProjectId,
+            filePath: filePath,
+            fileSize: blob.size,
+            recordingUrl: publicUrl,
+          }),
+        })
+        
+        if (!sessionResponse.ok) {
+          const sessionError = await sessionResponse.json()
+          console.error('❌ Failed to create session:', sessionError)
+          // Try to clean up uploaded file
+          await supabase.storage.from('meeting-recordings').remove([filePath])
+          throw new Error(`Failed to create recording session: ${sessionError.error || 'Unknown error'}`)
+        }
+        
+        result = await sessionResponse.json()
+        console.log('✅ Recording session created:', result.session.id)
+      } else {
+        // ✅ Use API route for smaller files (simpler, has retry logic)
+        const response = await fetch('/api/recordings', {
+          method: 'POST',
+          body: formData,
+        })
 
-      if (!response.ok) {
-        console.error('❌ Upload failed with status:', response.status)
-        console.error('   Error details:', result)
-        const errorMessage = result?.error || result?.details || result?.message || `Upload failed with status ${response.status}`
-        throw new Error(errorMessage)
-      }
+        console.log('📡 Upload response status:', response.status)
+        console.log('   Response OK:', response.ok)
+        
+        try {
+          result = await response.json()
+          console.log('📡 Upload response data:', result)
+        } catch (parseError) {
+          // Handle non-JSON responses (like 413 errors)
+          const text = await response.text()
+          console.error('❌ Failed to parse response as JSON:', parseError)
+          console.error('   Raw response:', text.substring(0, 500))
+          
+          if (response.status === 413) {
+            throw new Error('File too large for API route. Please try recording again - the system will use direct upload for large files.')
+          }
+          
+          throw new Error(`Server error (${response.status}): ${text.substring(0, 200)}`)
+        }
 
-      console.log('✅ Recording uploaded:', result.session.id)
+        if (!response.ok) {
+          console.error('❌ Upload failed with status:', response.status)
+          console.error('   Error details:', result)
+          
+          if (response.status === 413) {
+            throw new Error('File too large. Please try recording again - large files will be handled automatically.')
+          }
+          
+          const errorMessage = result?.error || result?.details || result?.message || `Upload failed with status ${response.status}`
+          throw new Error(errorMessage)
+        }
+
+        console.log('✅ Recording uploaded:', result.session.id)
+      }
       
       // ✅ Trigger transcription (which will then trigger AI processing)
       if (result.recordingUrl) {
