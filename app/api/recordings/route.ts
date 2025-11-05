@@ -114,20 +114,28 @@ export async function POST(request: NextRequest) {
     const publicUrl = urlData.publicUrl
 
     // Create recording session in database
+    // ✅ Save projectId both in direct column (if exists) and metadata (fallback)
+    const sessionDataToInsert: any = {
+      user_id: userId,
+      title,
+      file_path: finalFilePath,
+      file_size: audioFile.size,
+      duration,
+      transcription_status: 'pending',
+      metadata: {
+        projectId: projectId || null, // ✅ Store project context in metadata
+        uploadedAt: new Date().toISOString()
+      }
+    }
+    
+    // If project_id column exists, also set it directly
+    if (projectId) {
+      sessionDataToInsert.project_id = projectId
+    }
+    
     const { data: sessionData, error: dbError } = await supabase
       .from('recording_sessions')
-      .insert({
-        user_id: userId,
-        title,
-        file_path: finalFilePath,
-        file_size: audioFile.size,
-        duration,
-        transcription_status: 'pending',
-        metadata: {
-          projectId: projectId || null, // ✅ Store project context
-          uploadedAt: new Date().toISOString()
-        }
-      })
+      .insert(sessionDataToInsert)
       .select()
       .single()
 

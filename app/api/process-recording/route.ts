@@ -44,10 +44,13 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // ✅ Get projectId from request body OR session metadata (fallback)
-    const finalProjectId = projectId || session.metadata?.projectId || null
+    // ✅ Get projectId from request body OR session project_id column OR session metadata (fallback)
+    const finalProjectId = projectId || (session as any).project_id || session.metadata?.projectId || null
     console.log(`🤖 Processing with project context: ${finalProjectId || 'none'}`)
-    console.log(`   From request: ${projectId || 'none'}, From metadata: ${session.metadata?.projectId || 'none'}`)
+    console.log(`   From request: ${projectId || 'none'}`)
+    console.log(`   From session.project_id: ${(session as any).project_id || 'none'}`)
+    console.log(`   From metadata: ${session.metadata?.projectId || 'none'}`)
+    console.log(`   Final projectId: ${finalProjectId || 'none'}`)
 
     if (!session.transcription_text) {
       return NextResponse.json(
@@ -244,10 +247,12 @@ Generate ONLY the title (no quotes, no JSON, no explanation, no prefix like "Tit
       }
     }
     
-    // Add project_id if provided
+    // Add project_id if provided (CRITICAL: Link meeting to project)
     if (finalProjectId) {
       meetingData.project_id = finalProjectId
       console.log(`📁 Linking meeting to project: ${finalProjectId}`)
+    } else {
+      console.warn(`⚠️  No projectId available - meeting and tasks will not be linked to a project`)
     }
 
     console.log('📝 Creating meeting with data:', {
@@ -294,15 +299,18 @@ Generate ONLY the title (no quotes, no JSON, no explanation, no prefix like "Tit
         tags: ['meeting-generated', `meeting:${meeting.id}`],
       }))
       console.log(`📋 Creating ${tasksToCreate.length} tasks from task extraction`)
-      console.log(`   Project ID for tasks: ${finalProjectId || 'none'}`)
+      console.log(`   ✅ Project ID for tasks: ${finalProjectId || 'NONE (will not be linked to project!)'}`)
       console.log(`   Task titles:`, tasksToCreate.map(t => t.title).join(', '))
+      if (!finalProjectId) {
+        console.warn(`   ⚠️  WARNING: Tasks will be created without project association!`)
+      }
     } else if (meeting.action_items && Array.isArray(meeting.action_items) && meeting.action_items.length > 0) {
       // Fallback: Create tasks from action items if task extraction failed
       console.log(`⚠️  Task extraction returned 0, using action items as fallback`)
       tasksToCreate = meeting.action_items.map((item: any) => ({
         title: typeof item === 'string' ? item : (item.title || item.description || 'Untitled task'),
         description: typeof item === 'string' ? `From meeting: ${meeting.title}` : (item.description || `From meeting: ${meeting.title}`),
-        project_id: finalProjectId || null,
+        project_id: finalProjectId || null, // ✅ CRITICAL: Associate with selected project
         assignee_id: null,
         status: 'todo' as const,
         priority: (typeof item === 'object' && item.priority) ? item.priority : 'medium' as const,
@@ -313,13 +321,17 @@ Generate ONLY the title (no quotes, no JSON, no explanation, no prefix like "Tit
         tags: ['meeting-generated', `meeting:${meeting.id}`],
       }))
       console.log(`📋 Creating ${tasksToCreate.length} tasks from action items`)
+      console.log(`   ✅ Project ID for tasks: ${finalProjectId || 'NONE (will not be linked to project!)'}`)
+      if (!finalProjectId) {
+        console.warn(`   ⚠️  WARNING: Tasks will be created without project association!`)
+      }
     } else {
       // Final fallback: Create at least one review task
       console.warn(`⚠️  No tasks or action items found, creating fallback review task`)
       tasksToCreate = [{
         title: 'Review meeting transcript and extract action items',
         description: `Review the meeting transcript and identify any action items or tasks that need to be completed. Meeting: ${meeting.title}`,
-        project_id: finalProjectId || null,
+        project_id: finalProjectId || null, // ✅ CRITICAL: Associate with selected project
         assignee_id: userId,
         status: 'todo' as const,
         priority: 'medium' as const,
@@ -330,6 +342,10 @@ Generate ONLY the title (no quotes, no JSON, no explanation, no prefix like "Tit
         tags: ['meeting-generated', `meeting:${meeting.id}`, 'manual-review'],
       }]
       console.log(`📋 Creating 1 fallback review task`)
+      console.log(`   ✅ Project ID for task: ${finalProjectId || 'NONE (will not be linked to project!)'}`)
+      if (!finalProjectId) {
+        console.warn(`   ⚠️  WARNING: Task will be created without project association!`)
+      }
     }
     
     if (tasksToCreate.length > 0) {
