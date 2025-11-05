@@ -281,10 +281,11 @@ export default function EnhancedMeetingsPage() {
             
             // ✅ IMPORTANT: Must use meeting ID if it exists
             const meetingId = associatedMeeting?.id
-            const isOrphaned = !meetingId && session.transcription_status === 'completed'
+            // ✅ Check if transcription is complete but not AI-processed yet
+            const isOrphaned = !meetingId && session.transcription_status === 'completed' && session.transcription_text && !session.ai_processed
             
             if (isOrphaned) {
-              console.warn(`⚠️ Recording session ${session.id} has no associated meeting but has transcription. Needs processing.`)
+              console.warn(`⚠️ Recording session ${session.id} has completed transcription but no meeting. Auto-processing...`)
             }
             
             return {
@@ -312,6 +313,46 @@ export default function EnhancedMeetingsPage() {
         console.log(`✅ Transformed ${transformedMeetings.length} recordings for display`)
         if (transformedMeetings.length > 0) {
           console.log('Sample recording:', transformedMeetings[0])
+        }
+        
+        // ✅ AUTO-PROCESS: Automatically trigger processing for orphaned recordings
+        const orphanedRecordings = transformedMeetings.filter((m: any) => m._isOrphaned && m._recordingSessionId)
+        if (orphanedRecordings.length > 0) {
+          console.log(`🔄 Auto-processing ${orphanedRecordings.length} orphaned recording(s)...`)
+          
+          // Process them in parallel (don't await - let it run in background)
+          Promise.all(orphanedRecordings.map(async (meeting: any) => {
+            const sessionId = meeting._recordingSessionId
+            try {
+              console.log(`🤖 Auto-triggering processing for: ${sessionId}`)
+              const response = await fetch('/api/process-recording', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  sessionId,
+                  userId: user?.id,
+                  projectId: meeting.project_id
+                })
+              })
+              
+              if (response.ok) {
+                const result = await response.json()
+                console.log(`✅ Auto-processed recording: ${sessionId}`, result)
+                // Reload meetings after a short delay to show updated status
+                setTimeout(() => {
+                  console.log('🔄 Reloading meetings after auto-processing...')
+                  loadMeetings()
+                }, 3000)
+              } else {
+                const error = await response.json()
+                console.error(`❌ Auto-processing failed for ${sessionId}:`, error)
+              }
+            } catch (error) {
+              console.error(`❌ Error auto-processing ${sessionId}:`, error)
+            }
+          })).catch(err => {
+            console.error('Error in auto-processing batch:', err)
+          })
         }
         
         setMeetings(transformedMeetings)

@@ -26,27 +26,34 @@ export async function DELETE(
 
     console.log('🗑️ API: Deleting recording with ID:', idParam, 'for user:', user.id)
 
-    // Try to find as a meeting first
-    const { data: meeting } = await supabaseAdmin
-      .from('meetings')
-      .select('recording_session_id')
-      .eq('id', idParam)
-      .maybeSingle()
+    // ✅ Handle "recording-" prefix (used for orphaned recordings in UI)
+    let actualId = idParam
+    if (idParam.startsWith('recording-')) {
+      actualId = idParam.replace('recording-', '')
+      console.log('🔧 Stripped "recording-" prefix, actual ID:', actualId)
+    }
 
     let meetingId: string | null = null
     let recordingSessionId: string | null = null
 
+    // Try to find as a meeting first
+    const { data: meeting } = await supabaseAdmin
+      .from('meetings')
+      .select('recording_session_id')
+      .eq('id', actualId)
+      .maybeSingle()
+
     if (meeting) {
       // It's a meeting ID
-      meetingId = idParam
+      meetingId = actualId
       recordingSessionId = meeting.recording_session_id
       console.log('📋 Found as meeting ID')
     } else {
       // Maybe it's a recording_session ID (orphaned recording)
       const { data: session } = await supabaseAdmin
         .from('recording_sessions')
-        .select('id, user_id, metadata')
-        .eq('id', idParam)
+        .select('id, user_id, metadata, file_path')
+        .eq('id', actualId)
         .maybeSingle()
 
       if (session) {
@@ -94,22 +101,25 @@ export async function DELETE(
     if (recordingSessionId) {
       const { data } = await supabaseAdmin
         .from('recording_sessions')
-        .select('storage_path, user_id')
+        .select('file_path, storage_path, user_id')
         .eq('id', recordingSessionId)
         .maybeSingle()
       recordingSession = data
     }
 
-    // Delete storage files if they exist
-    if (recordingSession?.storage_path) {
-      console.log('🗑️ Deleting storage files:', recordingSession.storage_path)
+    // Delete storage files if they exist (try both file_path and storage_path)
+    const filePath = recordingSession?.file_path || recordingSession?.storage_path
+    if (filePath) {
+      console.log('🗑️ Deleting storage files:', filePath)
       const { error: storageError } = await supabaseAdmin.storage
         .from('meeting-recordings')
-        .remove([recordingSession.storage_path])
+        .remove([filePath])
       
       if (storageError) {
         console.error('⚠️ Storage deletion error:', storageError.message)
         // Don't fail the whole operation if storage deletion fails
+      } else {
+        console.log('✅ Storage file deleted')
       }
     }
 
