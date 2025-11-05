@@ -508,6 +508,45 @@ Generate ONLY the title (no quotes, no JSON, no explanation, no prefix like "Tit
     
     if (tasksToCreate.length > 0) {
 
+      // ✅ DEDUPLICATE: Remove duplicate tasks by title (case-insensitive)
+      const seenTitles = new Set<string>()
+      tasksToCreate = tasksToCreate.filter(task => {
+        const titleKey = (task.title || '').toLowerCase().trim()
+        if (titleKey && seenTitles.has(titleKey)) {
+          console.warn(`⚠️  Duplicate task filtered out: "${task.title}"`)
+          return false
+        }
+        if (titleKey) {
+          seenTitles.add(titleKey)
+        }
+        return true
+      })
+      console.log(`📋 After deduplication: ${tasksToCreate.length} unique tasks`)
+
+      // ✅ CHECK EXISTING: Verify tasks don't already exist for this project
+      if (finalProjectId && tasksToCreate.length > 0) {
+        const taskTitles = tasksToCreate.map(t => t.title?.toLowerCase().trim()).filter(Boolean)
+        const { data: existingTasks } = await supabase
+          .from('tasks')
+          .select('id, title')
+          .eq('project_id', finalProjectId)
+          .in('title', taskTitles)
+        
+        if (existingTasks && existingTasks.length > 0) {
+          const existingTitles = new Set(existingTasks.map(t => t.title?.toLowerCase().trim()))
+          const beforeCount = tasksToCreate.length
+          tasksToCreate = tasksToCreate.filter(task => {
+            const titleKey = task.title?.toLowerCase().trim()
+            if (titleKey && existingTitles.has(titleKey)) {
+              console.warn(`⚠️  Task already exists, skipping: "${task.title}"`)
+              return false
+            }
+            return true
+          })
+          console.log(`📋 After checking existing: ${tasksToCreate.length} new tasks (${beforeCount - tasksToCreate.length} already exist)`)
+        }
+      }
+
       // ✅ CRITICAL: Ensure project_id is set on ALL tasks before inserting
       if (finalProjectId) {
         tasksToCreate = tasksToCreate.map(task => ({

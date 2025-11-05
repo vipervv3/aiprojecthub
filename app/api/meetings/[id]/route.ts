@@ -123,9 +123,36 @@ export async function DELETE(
       }
     }
 
-    // Delete task links (if meeting exists)
+    // Delete task links AND tasks (if meeting exists)
     if (meetingId) {
-      console.log('🗑️ Deleting task links...')
+      console.log('🗑️ Deleting task links and associated tasks...')
+      
+      // First, get all task IDs linked to this meeting
+      const { data: linkedTasks } = await supabaseAdmin
+        .from('meeting_tasks')
+        .select('task_id')
+        .eq('meeting_id', meetingId)
+      
+      const taskIds = linkedTasks?.map(lt => lt.task_id) || []
+      
+      if (taskIds.length > 0) {
+        console.log(`   Found ${taskIds.length} tasks linked to meeting`)
+        
+        // Delete the tasks themselves (AI-generated tasks from this meeting)
+        const { error: tasksDeleteError } = await supabaseAdmin
+          .from('tasks')
+          .delete()
+          .in('id', taskIds)
+          .eq('is_ai_generated', true) // Only delete AI-generated tasks
+        
+        if (tasksDeleteError) {
+          console.error('⚠️ Tasks deletion error:', tasksDeleteError.message)
+        } else {
+          console.log(`✅ Deleted ${taskIds.length} AI-generated tasks`)
+        }
+      }
+      
+      // Delete task links
       const { error: taskLinkError } = await supabaseAdmin
         .from('meeting_tasks')
         .delete()
@@ -133,6 +160,8 @@ export async function DELETE(
 
       if (taskLinkError) {
         console.error('⚠️ Task link deletion error:', taskLinkError.message)
+      } else {
+        console.log('✅ Deleted task links')
       }
     }
 

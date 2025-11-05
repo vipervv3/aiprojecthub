@@ -368,18 +368,34 @@ export default function MeetingDetailPage() {
           
           if (typeof item === 'string') {
             title = item
-            description = `Action item from meeting: ${meetingData.title}`
+            description = `Action item from meeting: ${meetingData.title || 'Meeting'}`
           } else if (item && typeof item === 'object') {
+            // ✅ FIX: Ensure all values are strings, not objects
             title = String(item.title || item.description || item.name || 'Untitled task')
-            description = typeof item.description === 'string' ? item.description : `Action item from meeting: ${meetingData.title}`
-            priority = (item.priority && typeof item.priority === 'string') ? item.priority : 'medium'
+            
+            // ✅ FIX: Handle description - if it's an object, convert to string
+            if (typeof item.description === 'string') {
+              description = item.description
+            } else if (item.description && typeof item.description === 'object') {
+              description = JSON.stringify(item.description)
+            } else {
+              description = `Action item from meeting: ${meetingData.title || 'Meeting'}`
+            }
+            
+            // ✅ FIX: Ensure priority is a string
+            if (typeof item.priority === 'string') {
+              priority = item.priority
+            } else {
+              priority = 'medium'
+            }
           }
           
+          // ✅ FIX: Ensure all fields are strings (React can't render objects)
           return {
             id: `action-item-${index}`,
-            title,
-            description,
-            priority,
+            title: String(title || 'Untitled task'),
+            description: String(description || ''),
+            priority: String(priority || 'medium'),
             status: 'todo',
             is_ai_generated: true
           } as Task
@@ -661,7 +677,9 @@ export default function MeetingDetailPage() {
                 </div>
                 <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 sm:p-6 max-h-96 sm:max-h-[600px] overflow-y-auto">
                   <p className="text-sm sm:text-base text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">
-                    {recording.transcription_text}
+                    {typeof recording.transcription_text === 'string' 
+                      ? recording.transcription_text 
+                      : JSON.stringify(recording.transcription_text || 'No transcript available')}
                   </p>
                 </div>
                 <button
