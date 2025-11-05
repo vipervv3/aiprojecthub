@@ -17,6 +17,49 @@ export default function MinimizableRecordingWidget({
   onClose, 
   onRecordingComplete 
 }: MinimizableRecordingWidgetProps) {
+  // Helper function to start client-side polling for a specific recording
+  const startClientSidePolling = (sessionId: string) => {
+    let attempts = 0
+    const maxAttempts = 120 // 10 minutes max (5 seconds * 120)
+    
+    const pollInterval = setInterval(async () => {
+      attempts++
+      
+      try {
+        const response = await fetch('/api/check-transcription', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId }),
+        })
+        
+        if (response.ok) {
+          const data = await response.json()
+          
+          if (data.status === 'completed') {
+            console.log(`✅ Transcription completed for ${sessionId}`)
+            clearInterval(pollInterval)
+            toast.success('Transcription complete! AI processing will start shortly.')
+            // Trigger page refresh or reload meetings list
+            if (typeof window !== 'undefined') {
+              setTimeout(() => window.location.reload(), 2000)
+            }
+          } else if (data.status === 'error') {
+            console.error(`❌ Transcription failed: ${data.message}`)
+            clearInterval(pollInterval)
+            toast.error('Transcription failed: ' + data.message)
+          }
+          // else still processing, continue polling
+        }
+      } catch (error) {
+        console.error(`Error polling transcription:`, error)
+      }
+      
+      if (attempts >= maxAttempts) {
+        console.warn(`⚠️ Polling timeout for ${sessionId}`)
+        clearInterval(pollInterval)
+      }
+    }, 5000) // Poll every 5 seconds
+  }
   const { user } = useAuth()
   const [isRecording, setIsRecording] = useState(false)
   const [isPaused, setIsPaused] = useState(false)

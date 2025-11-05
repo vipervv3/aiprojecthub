@@ -223,6 +223,7 @@ export default function EnhancedMeetingsPage() {
     }
 
     // ✅ Client-side polling for transcriptions in progress
+    // Poll more frequently (every 5 seconds) to catch completion quickly
     pollingIntervalRef.current = setInterval(async () => {
       // Use ref to get current meetings without causing re-render loop
       const currentMeetings = meetingsRef.current
@@ -236,6 +237,7 @@ export default function EnhancedMeetingsPage() {
         console.log(`🔄 Checking ${transcribingRecordings.length} recording(s) for transcription updates...`)
         
         // Check each recording's transcription status
+        let hasUpdates = false
         for (const meeting of transcribingRecordings) {
           if (meeting._recordingSessionId) {
             try {
@@ -251,8 +253,10 @@ export default function EnhancedMeetingsPage() {
                 const data = await response.json()
                 if (data.status === 'completed') {
                   console.log(`✅ Transcription completed for ${meeting._recordingSessionId}`)
-                  // Reload meetings to show updated status (this will update the ref)
-                  loadMeetings()
+                  hasUpdates = true
+                } else if (data.status === 'error') {
+                  console.error(`❌ Transcription failed for ${meeting._recordingSessionId}:`, data.message)
+                  hasUpdates = true
                 }
               }
             } catch (error) {
@@ -260,8 +264,13 @@ export default function EnhancedMeetingsPage() {
             }
           }
         }
+        
+        // Only reload if we got updates (avoids unnecessary reloads)
+        if (hasUpdates) {
+          loadMeetings()
+        }
       }
-    }, 15000) // Poll every 15 seconds
+    }, 5000) // Poll every 5 seconds for faster updates
     
     return () => {
       if (pollingIntervalRef.current) {
