@@ -58,7 +58,9 @@ const ViewMeetingModal: React.FC<ViewMeetingModalProps> = ({ meeting, onClose, o
     <div className="fixed inset-0 bg-black bg-opacity-50 dark:bg-black/70 flex items-center justify-center z-50 p-4">
       <div className="bg-white dark:bg-gray-800 rounded-lg p-4 sm:p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">{meeting.title}</h2>
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">
+            {typeof meeting.title === 'string' ? meeting.title : String(meeting.title || 'Untitled Meeting')}
+          </h2>
           <button
             onClick={onClose}
             className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 touch-manipulation"
@@ -372,8 +374,14 @@ export default function EnhancedMeetingsPage() {
             
             return {
               id: meetingId || `recording-${session.id}`, // Use prefixed ID for orphaned recordings
-              title: associatedMeeting?.title || session.title || `Recording - ${createdDate.toLocaleDateString()}`,
-              description: associatedMeeting?.description || statusMessage,
+              title: typeof (associatedMeeting?.title) === 'string' 
+                ? associatedMeeting.title 
+                : (typeof (session.title) === 'string' 
+                  ? session.title 
+                  : `Recording - ${createdDate.toLocaleDateString()}`),
+              description: typeof (associatedMeeting?.description) === 'string'
+                ? associatedMeeting.description
+                : (typeof statusMessage === 'string' ? statusMessage : ''),
               date: createdDate.toISOString().split('T')[0],
               start_time: createdDate.toTimeString().slice(0, 5),
               end_time: new Date(createdDate.getTime() + (session.duration || 30) * 60000).toTimeString().slice(0, 5),
@@ -661,7 +669,9 @@ export default function EnhancedMeetingsPage() {
                 <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
-                      <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100 flex-1 min-w-0">{meeting.title}</h3>
+                      <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100 flex-1 min-w-0">
+                        {typeof meeting.title === 'string' ? meeting.title : String(meeting.title || 'Untitled Meeting')}
+                      </h3>
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(meeting.status)} whitespace-nowrap`}>
                         {meeting.status.replace('_', ' ')}
                       </span>
@@ -678,7 +688,9 @@ export default function EnhancedMeetingsPage() {
                     </div>
                     
                     {meeting.description && (
-                      <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mb-3 line-clamp-2">{meeting.description}</p>
+                      <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mb-3 line-clamp-2">
+                        {typeof meeting.description === 'string' ? meeting.description : String(meeting.description || '')}
+                      </p>
                     )}
                     
                     <div className="flex flex-wrap items-center gap-3 sm:gap-6 text-xs sm:text-sm text-gray-500 dark:text-gray-400">

@@ -167,12 +167,25 @@ export default function PastMeetings({
                                 </h4>
                                 <div className="bg-green-50 rounded-lg p-4">
                                   <ul className="space-y-2">
-                                    {meeting.action_items.slice(0, 5).map((item: any, idx: number) => (
-                                      <li key={idx} className="text-sm text-gray-700 flex items-start">
-                                        <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 mr-2 flex-shrink-0" />
-                                        {item.title || item}
-                                      </li>
-                                    ))}
+                                    {meeting.action_items.slice(0, 5).map((item: any, idx: number) => {
+                                      // ✅ FIX: Ensure we always render a string, never an object
+                                      let itemText = ''
+                                      if (typeof item === 'string') {
+                                        itemText = item
+                                      } else if (item && typeof item === 'object') {
+                                        // If it's an object, extract the title or description
+                                        itemText = item.title || item.description || item.task || 'Task'
+                                      } else {
+                                        itemText = String(item || 'Task')
+                                      }
+                                      
+                                      return (
+                                        <li key={idx} className="text-sm text-gray-700 flex items-start">
+                                          <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 mr-2 flex-shrink-0" />
+                                          {itemText}
+                                        </li>
+                                      )
+                                    })}
                                     {meeting.action_items.length > 5 && (
                                       <li className="text-sm text-gray-500">
                                         +{meeting.action_items.length - 5} more tasks...
