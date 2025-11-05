@@ -76,55 +76,73 @@ export default function MeetingDetailPage() {
         throw new Error('Database connection not available')
       }
 
-      // Load meeting with recording session and project joined
-      console.log('📋 Loading meeting:', meetingId)
+      // ✅ Handle "recording-" prefix - strip it before querying
+      let actualMeetingId = meetingId
+      let recordingSessionId: string | null = null
+      let isRecordingSession = false
       
-      // First, try to load as a meeting ID
-      // Use regular left join (not inner join) to avoid 406 errors
-      let { data: meetingData, error: meetingError } = await supabase
-        .from('meetings')
-        .select(`
-          *,
-          recording_sessions (
-            id,
-            user_id,
-            transcription_status,
-            transcription_text,
-            transcription_confidence,
-            duration,
-            created_at,
-            updated_at,
-            metadata
-          )
-        `)
-        .eq('id', meetingId)
-        .maybeSingle()
-
-      // Handle 406 errors gracefully (this happens when maybeSingle() returns 0 rows in some Supabase versions)
-      if (meetingError && (meetingError.code === 'PGRST116' || meetingError.message?.includes('0 rows') || meetingError.message?.includes('Cannot coerce'))) {
-        console.log('⚠️ Meeting not found (406 error), this might be a recording session ID')
-        meetingError = null // Reset to check for recording session
-        meetingData = null
+      if (meetingId.startsWith('recording-')) {
+        recordingSessionId = meetingId.replace('recording-', '')
+        isRecordingSession = true
+        console.log('🔧 Detected recording session ID, stripped prefix:', recordingSessionId)
       }
 
-      // If we have meeting data, load project separately
-      if (meetingData && meetingData.project_id) {
-        const { data: projectData } = await supabase
-          .from('projects')
-          .select('id, name, status')
-          .eq('id', meetingData.project_id)
+      // Load meeting with recording session and project joined
+      console.log('📋 Loading meeting:', meetingId, '→ actual ID:', actualMeetingId)
+      
+      let meetingData = null
+      let meetingError = null
+      
+      // First, try to load as a meeting ID (only if not a recording- prefix)
+      if (!isRecordingSession) {
+        // Use regular left join (not inner join) to avoid 406 errors
+        const result = await supabase
+          .from('meetings')
+          .select(`
+            *,
+            recording_sessions (
+              id,
+              user_id,
+              transcription_status,
+              transcription_text,
+              transcription_confidence,
+              duration,
+              created_at,
+              updated_at,
+              metadata
+            )
+          `)
+          .eq('id', actualMeetingId)
           .maybeSingle()
         
-        if (projectData) {
-          meetingData.projects = projectData
+        meetingData = result.data
+        meetingError = result.error
+
+        // Handle 406 errors gracefully (this happens when maybeSingle() returns 0 rows in some Supabase versions)
+        if (meetingError && (meetingError.code === 'PGRST116' || meetingError.message?.includes('0 rows') || meetingError.message?.includes('Cannot coerce'))) {
+          console.log('⚠️ Meeting not found (406 error), this might be a recording session ID')
+          meetingError = null // Reset to check for recording session
+          meetingData = null
+        }
+
+        // If we have meeting data, load project separately
+        if (meetingData && meetingData.project_id) {
+          const { data: projectData } = await supabase
+            .from('projects')
+            .select('id, name, status')
+            .eq('id', meetingData.project_id)
+            .maybeSingle()
+          
+          if (projectData) {
+            meetingData.projects = projectData
+          }
         }
       }
 
-      // If not found as meeting, check if it's a recording session ID (with "recording-" prefix)
-      if (!meetingData && !meetingError) {
-        let recordingSessionId = meetingId
-        if (meetingId.startsWith('recording-')) {
-          recordingSessionId = meetingId.replace('recording-', '')
+      // If not found as meeting, check if it's a recording session ID
+      if ((!meetingData && !meetingError) || isRecordingSession) {
+        if (!recordingSessionId) {
+          recordingSessionId = meetingId
         }
         
         console.log('⚠️ Not found as meeting ID, checking if it\'s a recording session ID:', recordingSessionId)
