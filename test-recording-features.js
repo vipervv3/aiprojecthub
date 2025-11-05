@@ -8,8 +8,12 @@
 const https = require('https');
 const http = require('http');
 
-// Get API key from environment or use the one from memory
-const GROQ_API_KEY = process.env.GROQ_API_KEY || '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';
+// Get API key from environment (required)
+const GROQ_API_KEY = process.env.GROQ_API_KEY;
+if (!GROQ_API_KEY) {
+  console.error('❌ GROQ_API_KEY environment variable is required');
+  process.exit(1);
+}
 
 console.log('🧪 Starting Internal Test Suite for Recording Features\n');
 console.log('=' .repeat(60));

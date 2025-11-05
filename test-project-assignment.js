@@ -7,8 +7,12 @@
 
 const https = require('https');
 
-const GROQ_API_KEY = process.env.GROQ_API_KEY || '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';
-const TEST_PROJECT_ID = '8fe55ee4-1d25-4691-9d4f-45e130a5ab85'; // The project ID from user's logs
+const GROQ_API_KEY = process.env.GROQ_API_KEY;
+if (!GROQ_API_KEY) {
+  console.error('❌ GROQ_API_KEY environment variable is required');
+  process.exit(1);
+}
+const TEST_PROJECT_ID = process.env.TEST_PROJECT_ID || 'REPLACE_WITH_YOUR_PROJECT_ID';
 
 console.log('🧪 Testing Project Assignment for Extracted Tasks\n');
 console.log('='.repeat(70));
