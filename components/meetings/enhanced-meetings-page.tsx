@@ -412,13 +412,17 @@ export default function EnhancedMeetingsPage() {
             const sessionId = meeting._recordingSessionId
             try {
               console.log(`🤖 Auto-triggering processing for: ${sessionId}`)
+              // Get projectId from meeting.project_id OR meeting.metadata?.projectId
+              const projectId = meeting.project_id || (meeting as any).metadata?.projectId || null
+              console.log(`   Project ID for processing: ${projectId || 'none'}`)
+              
               const response = await fetch('/api/process-recording', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                   sessionId,
                   userId: user?.id,
-                  projectId: meeting.project_id
+                  projectId: projectId
                 })
               })
               
