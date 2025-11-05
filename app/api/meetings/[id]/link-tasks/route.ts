@@ -18,12 +18,27 @@ export async function POST(
     }
 
     // ✅ SECURITY: Verify user is authenticated
+    const authHeader = request.headers.get('authorization')
+    console.log('🔐 Authentication check:')
+    console.log(`   Authorization header present: ${authHeader ? 'YES' : 'NO'}`)
+    if (authHeader) {
+      console.log(`   Header starts with 'Bearer ': ${authHeader.startsWith('Bearer ')}`)
+      console.log(`   Token length: ${authHeader.replace('Bearer ', '').length}`)
+    }
+    
     const user = await getAuthenticatedUser(request)
     
     if (!user) {
+      console.error('❌ Authentication failed: No user returned from getAuthenticatedUser')
+      console.error('   This could mean:')
+      console.error('   1. No Authorization header provided')
+      console.error('   2. Invalid token format')
+      console.error('   3. Token expired or invalid')
+      console.error('   4. Supabase auth.getUser() failed')
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    console.log('✅ User authenticated:', user.id)
     console.log('🔗 Linking tasks to meeting:', meetingId)
 
     // Get meeting to verify ownership and get project_id

@@ -19,10 +19,12 @@ export async function getAuthenticatedUser(request: NextRequest) {
     const authHeader = request.headers.get('authorization')
     
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.log('🔐 getAuthenticatedUser: No valid authorization header')
       return null
     }
 
     const token = authHeader.replace('Bearer ', '')
+    console.log(`🔐 getAuthenticatedUser: Token extracted, length: ${token.length}`)
 
     // Create Supabase client with the user's token
     const supabase = createClient(supabaseUrl, supabaseAnonKey, {
@@ -36,13 +38,21 @@ export async function getAuthenticatedUser(request: NextRequest) {
     // Get the authenticated user
     const { data: { user }, error } = await supabase.auth.getUser()
 
-    if (error || !user) {
+    if (error) {
+      console.error('🔐 getAuthenticatedUser: Supabase auth error:', error.message)
+      console.error('   Error code:', error.status || 'N/A')
       return null
     }
 
+    if (!user) {
+      console.error('🔐 getAuthenticatedUser: No user returned from Supabase')
+      return null
+    }
+
+    console.log(`🔐 getAuthenticatedUser: Successfully authenticated user: ${user.id}`)
     return user
   } catch (error) {
-    console.error('Error getting authenticated user:', error)
+    console.error('🔐 getAuthenticatedUser: Exception:', error)
     return null
   }
 }
