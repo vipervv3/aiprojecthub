@@ -247,17 +247,50 @@ Generate ONLY the title (no quotes, no JSON, no explanation, no prefix like "Tit
 
     // 4. Create meeting record
     // Add project_id if provided
+    
+    // Safely format the description date
+    let descriptionDate = 'unknown date'
+    try {
+      if (session.created_at) {
+        const dateObj = new Date(session.created_at)
+        if (!isNaN(dateObj.getTime())) {
+          descriptionDate = dateObj.toLocaleString()
+        }
+      }
+    } catch (dateError) {
+      console.warn('⚠️  Error formatting description date:', dateError)
+    }
+    
+    // Validate scheduled_at date
+    let scheduledAt = session.created_at
+    if (scheduledAt) {
+      try {
+        const dateObj = new Date(scheduledAt)
+        if (isNaN(dateObj.getTime())) {
+          console.warn('⚠️  Invalid scheduled_at date, using current date')
+          scheduledAt = new Date().toISOString()
+        } else {
+          scheduledAt = dateObj.toISOString()
+        }
+      } catch (dateError) {
+        console.warn('⚠️  Error parsing scheduled_at, using current date:', dateError)
+        scheduledAt = new Date().toISOString()
+      }
+    } else {
+      scheduledAt = new Date().toISOString()
+    }
+    
     const meetingData: any = {
       title: meetingTitle,
-      description: `AI-processed recording from ${new Date(session.created_at).toLocaleString()}`,
-      scheduled_at: session.created_at,
+      description: `AI-processed recording from ${descriptionDate}`,
+      scheduled_at: scheduledAt,
       duration: session.duration || 0,
       recording_session_id: sessionId,
       summary: taskExtraction.summary || 'No summary available',
       action_items: taskExtraction.tasks.map(t => ({
-        title: t.title,
-        description: t.description,
-        priority: t.priority,
+        title: t.title || 'Untitled action item',
+        description: t.description || '',
+        priority: t.priority || 'medium',
         completed: false
       })),
       attendees: [],
@@ -309,19 +342,36 @@ Generate ONLY the title (no quotes, no JSON, no explanation, no prefix like "Tit
     
     // Try to use extracted tasks first
     if (taskExtraction.tasks && taskExtraction.tasks.length > 0) {
-      tasksToCreate = taskExtraction.tasks.map(task => ({
-        title: task.title || 'Untitled task',
-        description: task.description || 'No description',
-        project_id: finalProjectId || null, // ✅ Associate with selected project
-        assignee_id: task.assignee === 'User' ? userId : null,
-        status: 'todo' as const,
-        priority: task.priority || 'medium' as const,
-        is_ai_generated: true,
-        ai_priority_score: taskExtraction.confidence || 0.5,
-        due_date: task.dueDate ? new Date(task.dueDate).toISOString() : null,
-        estimated_hours: task.estimatedHours || null,
-        tags: ['meeting-generated', `meeting:${meeting.id}`],
-      }))
+      tasksToCreate = taskExtraction.tasks.map(task => {
+        // Safely handle due_date - validate date before converting
+        let dueDateISO: string | null = null
+        if (task.dueDate) {
+          try {
+            const dateObj = new Date(task.dueDate)
+            if (!isNaN(dateObj.getTime())) {
+              dueDateISO = dateObj.toISOString()
+            } else {
+              console.warn(`⚠️  Invalid dueDate for task "${task.title}": ${task.dueDate}`)
+            }
+          } catch (dateError) {
+            console.warn(`⚠️  Error parsing dueDate for task "${task.title}":`, dateError)
+          }
+        }
+        
+        return {
+          title: task.title || 'Untitled task',
+          description: task.description || 'No description',
+          project_id: finalProjectId || null, // ✅ Associate with selected project
+          assignee_id: task.assignee === 'User' ? userId : null,
+          status: 'todo' as const,
+          priority: task.priority || 'medium' as const,
+          is_ai_generated: true,
+          ai_priority_score: taskExtraction.confidence || 0.5,
+          due_date: dueDateISO,
+          estimated_hours: task.estimatedHours || null,
+          tags: ['meeting-generated', `meeting:${meeting.id}`],
+        }
+      })
       console.log(`📋 Creating ${tasksToCreate.length} tasks from task extraction`)
       console.log(`   ✅ Project ID for tasks: ${finalProjectId || 'NONE (will not be linked to project!)'}`)
       console.log(`   Task titles:`, tasksToCreate.map(t => t.title).join(', '))
