@@ -261,28 +261,36 @@ export default function EnhancedMeetingsPage() {
         console.log(`📹 Found ${meetingsMap.size} meetings associated with recordings`)
         
         // Transform recording sessions to Meeting format
-        // ✅ Filter out orphaned recordings or mark them for processing
+        // ✅ Show ALL recordings - including those still being processed
         const transformedMeetings: Meeting[] = recordingSessions
-          .filter((session: any) => {
-            // Only show recordings that have meetings OR have transcriptions ready for processing
-            const hasMeeting = meetingsMap.has(session.id)
-            const hasTranscription = session.transcription_status === 'completed' && session.transcription_text
-            
-            if (!hasMeeting && !hasTranscription) {
-              console.log(`⚠️ Skipping recording ${session.id} - no meeting and no transcription`)
-              return false
-            }
-            
-            return true
-          })
           .map((session: any) => {
             const associatedMeeting = meetingsMap.get(session.id)
             const createdDate = new Date(session.created_at)
             
             // ✅ IMPORTANT: Must use meeting ID if it exists
             const meetingId = associatedMeeting?.id
-            // ✅ Check if transcription is complete but not AI-processed yet
-            const isOrphaned = !meetingId && session.transcription_status === 'completed' && session.transcription_text && !session.ai_processed
+            
+            // Determine status based on transcription and AI processing
+            const transcriptionStatus = session.transcription_status || 'pending'
+            const isTranscribing = transcriptionStatus === 'pending' || transcriptionStatus === 'processing'
+            const isTranscriptionComplete = transcriptionStatus === 'completed' && session.transcription_text
+            const isOrphaned = !meetingId && isTranscriptionComplete && !session.ai_processed
+            
+            // Show appropriate status message
+            let statusMessage = ''
+            if (isTranscribing) {
+              statusMessage = '⏳ Transcribing...'
+            } else if (isOrphaned) {
+              statusMessage = '⏳ Processing...'
+            } else if (meetingId) {
+              statusMessage = associatedMeeting?.summary || ''
+            }
+            
+            // Determine meeting status
+            let meetingStatus: 'processing' | 'completed' = 'completed'
+            if (isTranscribing || isOrphaned) {
+              meetingStatus = 'processing'
+            }
             
             if (isOrphaned) {
               console.warn(`⚠️ Recording session ${session.id} has completed transcription but no meeting. Auto-processing...`)
@@ -291,13 +299,13 @@ export default function EnhancedMeetingsPage() {
             return {
               id: meetingId || `recording-${session.id}`, // Use prefixed ID for orphaned recordings
               title: associatedMeeting?.title || session.title || `Recording - ${createdDate.toLocaleDateString()}`,
-              description: associatedMeeting?.description || associatedMeeting?.summary || (isOrphaned ? '⏳ Processing...' : ''),
+              description: associatedMeeting?.description || statusMessage,
               date: createdDate.toISOString().split('T')[0],
               start_time: createdDate.toTimeString().slice(0, 5),
               end_time: new Date(createdDate.getTime() + (session.duration || 30) * 60000).toTimeString().slice(0, 5),
               location: associatedMeeting?.location || '',
               meeting_type: 'video_call',
-              status: isOrphaned ? 'processing' : 'completed',
+              status: meetingStatus,
               attendees: Array.isArray(associatedMeeting?.attendees) ? associatedMeeting.attendees : [],
               project_id: associatedMeeting?.project_id || session.metadata?.projectId,
               agenda: Array.isArray(associatedMeeting?.action_items) ? associatedMeeting.action_items : [],
@@ -306,7 +314,8 @@ export default function EnhancedMeetingsPage() {
               created_at: session.created_at,
               updated_at: session.updated_at,
               _isOrphaned: isOrphaned, // Internal flag
-              _recordingSessionId: session.id // Store for processing
+              _recordingSessionId: session.id, // Store for processing
+              _transcriptionStatus: transcriptionStatus // Store transcription status
             }
           })
         
@@ -315,8 +324,12 @@ export default function EnhancedMeetingsPage() {
           console.log('Sample recording:', transformedMeetings[0])
         }
         
-        // ✅ AUTO-PROCESS: Automatically trigger processing for orphaned recordings
-        const orphanedRecordings = transformedMeetings.filter((m: any) => m._isOrphaned && m._recordingSessionId)
+        // ✅ AUTO-PROCESS: Automatically trigger processing for orphaned recordings (only if transcription is complete)
+        const orphanedRecordings = transformedMeetings.filter((m: any) => 
+          m._isOrphaned && 
+          m._recordingSessionId && 
+          m._transcriptionStatus === 'completed'
+        )
         if (orphanedRecordings.length > 0) {
           console.log(`🔄 Auto-processing ${orphanedRecordings.length} orphaned recording(s)...`)
           
