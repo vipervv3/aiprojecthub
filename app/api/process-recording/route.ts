@@ -151,6 +151,15 @@ export async function POST(request: NextRequest) {
     
     try {
       console.log(`🎯 Generating intelligent title from transcript...`)
+      console.log(`   Current title: "${meetingTitle}"`)
+      console.log(`   Transcript length: ${transcriptionText.length} chars`)
+      console.log(`   Project context: ${finalProjectId || 'none'}`)
+      
+      // Check if Groq API key is available before attempting
+      if (!process.env.GROQ_API_KEY) {
+        console.warn(`⚠️  GROQ_API_KEY not set - skipping intelligent title generation`)
+        throw new Error('GROQ_API_KEY not available')
+      }
       
       // Use a more explicit prompt for title generation with Groq
       const titleContext = finalProjectId && projectContext 
@@ -180,8 +189,12 @@ Examples of EXCELLENT titles:
 Generate ONLY the title (no quotes, no JSON, no explanation, no prefix like "Title:"):`
 
       console.log(`🤖 Calling Groq AI for title generation...`)
+      console.log(`   Prompt length: ${titlePrompt.length} chars`)
+      
       const generatedTitle = await aiService.analyzeWithFallback(titlePrompt)
       console.log(`📝 Raw title response: "${generatedTitle}"`)
+      console.log(`   Response type: ${typeof generatedTitle}`)
+      console.log(`   Response length: ${generatedTitle?.length || 0} chars`)
       
       // Clean up the response more aggressively
       let cleanedTitle = generatedTitle
@@ -216,9 +229,20 @@ Generate ONLY the title (no quotes, no JSON, no explanation, no prefix like "Tit
       }
     } catch (titleError: any) {
       console.error('❌ Error generating title:', titleError)
+      console.error('   Error type:', titleError?.constructor?.name || typeof titleError)
       console.error('   Error message:', titleError?.message)
       console.error('   Error stack:', titleError?.stack)
+      
+      // Check if it's an API key issue
+      if (titleError?.message?.includes('GROQ_API_KEY') || titleError?.message?.includes('not set')) {
+        console.error('   🔍 DIAGNOSIS: GROQ_API_KEY is not set in Vercel environment variables')
+        console.error('   - Go to Vercel dashboard > Settings > Environment Variables')
+        console.error('   - Add GROQ_API_KEY with your Groq API key')
+        console.error('   - Redeploy after adding the variable')
+      }
+      
       // Keep the default title
+      console.warn(`   Using default title: "${meetingTitle}"`)
     }
 
     // 4. Create meeting record

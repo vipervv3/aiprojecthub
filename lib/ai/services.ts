@@ -87,7 +87,19 @@ export class AIService {
   // Groq analysis (faster inference)
   async analyzeWithGroq(prompt: string, context?: string): Promise<any> {
     try {
+      // Check API key first
+      const apiKey = process.env.GROQ_API_KEY
+      if (!apiKey) {
+        const errorMsg = 'GROQ_API_KEY environment variable is not set'
+        console.error(`❌ ${errorMsg}`)
+        console.error('   Environment variables available:', Object.keys(process.env).filter(k => k.includes('GROQ') || k.includes('API')))
+        throw new Error(errorMsg)
+      }
+      
       console.log(`🚀 Calling Groq AI (model: ${AI_CONFIG.models.groq.chat})...`)
+      console.log(`   API Key: ${apiKey.substring(0, 10)}...${apiKey.substring(apiKey.length - 4)} (${apiKey.length} chars)`)
+      console.log(`   Prompt length: ${prompt.length} chars`)
+      
       const response = await this.groq.chat.completions.create({
         model: AI_CONFIG.models.groq.chat,
         messages: [
@@ -106,10 +118,25 @@ export class AIService {
 
       const result = response.choices[0]?.message?.content
       console.log(`✅ Groq response received (${result?.length || 0} chars)`)
+      if (result && result.length > 0) {
+        console.log(`   First 200 chars: ${result.substring(0, 200)}...`)
+      }
       return result
     } catch (error: any) {
       console.error('❌ Groq API error:', error?.message || error)
-      console.error('   Full error:', error)
+      console.error('   Error type:', error?.constructor?.name || typeof error)
+      console.error('   Error code:', error?.code || 'N/A')
+      console.error('   Error status:', error?.status || 'N/A')
+      console.error('   Error response:', error?.response ? JSON.stringify(error.response, null, 2) : 'N/A')
+      console.error('   Full error object:', JSON.stringify(error, Object.getOwnPropertyNames(error), 2))
+      
+      // Check if it's an API key issue
+      if (error?.message?.includes('API key') || error?.message?.includes('authentication') || error?.status === 401) {
+        console.error('   🔍 DIAGNOSIS: This looks like an API key authentication issue')
+        console.error('   - Check if GROQ_API_KEY is set in Vercel environment variables')
+        console.error('   - Check if the key is valid and not expired')
+      }
+      
       throw error
     }
   }
