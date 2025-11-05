@@ -595,7 +595,7 @@ export default function MeetingDetailPage() {
             )}
 
             {/* Action Items */}
-            {meeting.action_items && meeting.action_items.length > 0 && (
+            {meeting.action_items && Array.isArray(meeting.action_items) && meeting.action_items.length > 0 && (
               <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 sm:p-6">
                 <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
                   <CheckSquare className="h-5 w-5 text-green-600 dark:text-green-400" />
@@ -603,10 +603,25 @@ export default function MeetingDetailPage() {
                 </h2>
                 <ul className="space-y-3">
                   {meeting.action_items.map((item: any, index: number) => {
-                    const title = typeof item === 'string' ? item : item.title || item.description || 'Untitled action item'
-                    const description = typeof item === 'object' && item.description ? item.description : null
-                    const priority = typeof item === 'object' && item.priority ? item.priority : null
-                    const completed = typeof item === 'object' && item.completed !== undefined ? item.completed : false
+                    // Safely extract values - handle all possible formats
+                    let title = 'Untitled action item'
+                    let description: string | null = null
+                    let priority: string | null = null
+                    let completed = false
+                    
+                    if (typeof item === 'string') {
+                      title = item
+                    } else if (item && typeof item === 'object') {
+                      title = String(item.title || item.description || item.name || 'Untitled action item')
+                      description = item.description && typeof item.description === 'string' ? item.description : null
+                      priority = item.priority && typeof item.priority === 'string' ? item.priority : null
+                      completed = Boolean(item.completed)
+                    }
+                    
+                    // Ensure title is always a string (never render object)
+                    if (typeof title !== 'string') {
+                      title = String(title || 'Untitled action item')
+                    }
                     
                     return (
                       <li key={index} className={`flex items-start gap-3 p-3 rounded-lg ${completed ? 'bg-gray-50 dark:bg-gray-700/50 opacity-75' : 'bg-green-50 dark:bg-green-900/20'}`}>
@@ -616,13 +631,13 @@ export default function MeetingDetailPage() {
                             <p className={`text-sm sm:text-base font-medium ${completed ? 'line-through text-gray-500 dark:text-gray-400' : 'text-gray-900 dark:text-gray-100'}`}>
                               {title}
                             </p>
-                            {priority && (
+                            {priority && typeof priority === 'string' && (
                               <span className={`px-2 py-1 rounded-full text-xs font-medium flex-shrink-0 ${getPriorityColor(priority)}`}>
                                 {priority}
                               </span>
                             )}
                           </div>
-                          {description && (
+                          {description && typeof description === 'string' && (
                             <p className={`text-sm text-gray-600 dark:text-gray-400 mt-1 ${completed ? 'line-through' : ''}`}>
                               {description}
                             </p>

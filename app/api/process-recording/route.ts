@@ -279,28 +279,29 @@ Generate ONLY the title (no quotes, no JSON, no explanation, no prefix like "Tit
     let tasksToCreate: any[] = []
     
     // Try to use extracted tasks first
-    if (taskExtraction.tasks.length > 0) {
+    if (taskExtraction.tasks && taskExtraction.tasks.length > 0) {
       tasksToCreate = taskExtraction.tasks.map(task => ({
-        title: task.title,
-        description: task.description,
+        title: task.title || 'Untitled task',
+        description: task.description || 'No description',
         project_id: finalProjectId || null, // ✅ Associate with selected project
         assignee_id: task.assignee === 'User' ? userId : null,
         status: 'todo' as const,
-        priority: task.priority,
+        priority: task.priority || 'medium' as const,
         is_ai_generated: true,
-        ai_priority_score: taskExtraction.confidence,
+        ai_priority_score: taskExtraction.confidence || 0.5,
         due_date: task.dueDate ? new Date(task.dueDate).toISOString() : null,
         estimated_hours: task.estimatedHours || null,
         tags: ['meeting-generated', `meeting:${meeting.id}`],
       }))
       console.log(`📋 Creating ${tasksToCreate.length} tasks from task extraction`)
       console.log(`   Project ID for tasks: ${finalProjectId || 'none'}`)
-    } else if (meeting.action_items && meeting.action_items.length > 0) {
+      console.log(`   Task titles:`, tasksToCreate.map(t => t.title).join(', '))
+    } else if (meeting.action_items && Array.isArray(meeting.action_items) && meeting.action_items.length > 0) {
       // Fallback: Create tasks from action items if task extraction failed
       console.log(`⚠️  Task extraction returned 0, using action items as fallback`)
       tasksToCreate = meeting.action_items.map((item: any) => ({
-        title: typeof item === 'string' ? item : item.title || item,
-        description: typeof item === 'string' ? `From meeting: ${meeting.title}` : item.description || `From meeting: ${meeting.title}`,
+        title: typeof item === 'string' ? item : (item.title || item.description || 'Untitled task'),
+        description: typeof item === 'string' ? `From meeting: ${meeting.title}` : (item.description || `From meeting: ${meeting.title}`),
         project_id: finalProjectId || null,
         assignee_id: null,
         status: 'todo' as const,
@@ -312,6 +313,23 @@ Generate ONLY the title (no quotes, no JSON, no explanation, no prefix like "Tit
         tags: ['meeting-generated', `meeting:${meeting.id}`],
       }))
       console.log(`📋 Creating ${tasksToCreate.length} tasks from action items`)
+    } else {
+      // Final fallback: Create at least one review task
+      console.warn(`⚠️  No tasks or action items found, creating fallback review task`)
+      tasksToCreate = [{
+        title: 'Review meeting transcript and extract action items',
+        description: `Review the meeting transcript and identify any action items or tasks that need to be completed. Meeting: ${meeting.title}`,
+        project_id: finalProjectId || null,
+        assignee_id: userId,
+        status: 'todo' as const,
+        priority: 'medium' as const,
+        is_ai_generated: true,
+        ai_priority_score: 0.3,
+        due_date: null,
+        estimated_hours: 1,
+        tags: ['meeting-generated', `meeting:${meeting.id}`, 'manual-review'],
+      }]
+      console.log(`📋 Creating 1 fallback review task`)
     }
     
     if (tasksToCreate.length > 0) {
