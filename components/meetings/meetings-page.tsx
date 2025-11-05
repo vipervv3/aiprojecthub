@@ -59,6 +59,35 @@ export default function MeetingsPage() {
         setSelectedProject(savedProject)
       }
     }
+    
+    // ✅ Listen for recording upload events to auto-refresh
+    const handleRecordingUploaded = (event: CustomEvent) => {
+      console.log('🔄 Recording uploaded event received, refreshing meetings...')
+      setTimeout(() => {
+        loadMeetings()
+        loadRecordingSessions()
+      }, 1000) // Small delay to ensure DB is updated
+    }
+    
+    const handleRecordingProcessed = (event: CustomEvent) => {
+      console.log('🔄 Recording processed event received, refreshing meetings...')
+      setTimeout(() => {
+        loadMeetings()
+        loadRecordingSessions()
+      }, 1000)
+    }
+    
+    if (typeof window !== 'undefined') {
+      window.addEventListener('recording-uploaded', handleRecordingUploaded as EventListener)
+      window.addEventListener('recording-processed', handleRecordingProcessed as EventListener)
+    }
+    
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('recording-uploaded', handleRecordingUploaded as EventListener)
+        window.removeEventListener('recording-processed', handleRecordingProcessed as EventListener)
+      }
+    }
   }, [user])
 
   // Save project selection for recording context

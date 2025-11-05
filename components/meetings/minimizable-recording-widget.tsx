@@ -39,8 +39,11 @@ export default function MinimizableRecordingWidget({
             console.log(`✅ Transcription completed for ${sessionId}`)
             clearInterval(pollInterval)
             toast.success('Transcription complete! AI processing will start shortly.')
-            // Trigger page refresh or reload meetings list
+            // ✅ Trigger refresh to show the recording in the list
             if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('recording-processed', { 
+                detail: { sessionId } 
+              }))
               setTimeout(() => window.location.reload(), 2000)
             }
           } else if (data.status === 'error') {
@@ -312,6 +315,18 @@ export default function MinimizableRecordingWidget({
 
       toast.success('✅ Recording uploaded! AI processing will begin shortly.')
       setProcessingStatus('AI processing in progress...')
+      
+      // ✅ Start client-side polling to show recording in list and track processing
+      const sessionId = result.session.id
+      console.log('🔄 Starting client-side polling for session:', sessionId)
+      startClientSidePolling(sessionId)
+      
+      // ✅ Trigger a custom event to notify pages to refresh their meetings list
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('recording-uploaded', { 
+          detail: { sessionId } 
+        }))
+      }
       
       // Close and reset immediately so user can continue
       onRecordingComplete()
