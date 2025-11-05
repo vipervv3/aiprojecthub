@@ -241,6 +241,8 @@ IMPORTANT: If the transcript contains ANY discussion of work, planning, or follo
     let response = ''
     try {
       console.log(`🔍 Extracting tasks from transcript (${text.length} chars)...`)
+      console.log(`🔑 GROQ_API_KEY check: ${process.env.GROQ_API_KEY ? `✅ Set (${process.env.GROQ_API_KEY.length} chars)` : '❌ NOT SET'}`)
+      
       response = await this.analyzeWithFallback(prompt, context)
       console.log('🤖 Raw AI response (first 500 chars):', response?.substring(0, 500))
       
