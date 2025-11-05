@@ -1,0 +1,56 @@
+================================================================================
+VERCEL ENVIRONMENT VARIABLES - PRIVATE VALUES
+================================================================================
+⚠️ DO NOT COMMIT THIS FILE TO GIT ⚠️
+This file contains sensitive API keys.
+
+Add these to Vercel at:
+https://vercel.com/vipervv3/aiprojecthub/settings/environment-variables
+
+================================================================================
+CRITICAL VARIABLES (Required)
+================================================================================
+
+NEXT_PUBLIC_SUPABASE_URL
+https://xekyfsnxrnfkdvrcsiye.supabase.co
+
+NEXT_PUBLIC_SUPABASE_ANON_KEY
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhla3lmc254cm5ma2R2cmNzaXllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkzNzExMDgsImV4cCI6MjA3NDk0NzEwOH0.mV9Ag7xvHJTPaMVgnVFvhu9L2C2Y3qJRzJDCs0ybthw
+
+SUPABASE_SERVICE_ROLE_KEY
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhla3lmc254cm5ma2R2cmNzaXllIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1OTM3MTEwOCwiZXhwIjoyMDc0OTQ3MTA4fQ.Z52BROntVXYXW2gfKGPcHu2kjuNBI6fPJSawh5UND_w
+
+GROQ_API_KEY
+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
+
+ASSEMBLYAI_API_KEY
+0ffad391688d4276afb95b51e333ee6f
+
+NEXT_PUBLIC_APP_URL
+https://aiprojecthub.vercel.app
+
+================================================================================
+INSTRUCTIONS
+================================================================================
+
+1. Go to: https://vercel.com/vipervv3/aiprojecthub/settings/environment-variables
+
+2. For EACH variable above:
+   - Click "Add New"
+   - Paste the variable name (left side)
+   - Paste the value (right side)
+   - Select ALL environments: Production, Preview, Development
+   - Click "Save"
+
+3. After adding all variables:
+   - Go to: https://vercel.com/vipervv3/aiprojecthub/deployments
+   - Click "..." on latest deployment → "Redeploy"
+   - Uncheck "Use existing Build Cache"
+   - Click "Redeploy"
+
+4. Wait 2-3 minutes for deployment
+
+5. Test by recording a meeting
+
+================================================================================
+

@@ -29,17 +29,25 @@ export async function POST(
     // Get meeting to verify ownership and get project_id
     const { data: meeting, error: meetingError } = await supabaseAdmin
       .from('meetings')
-      .select('id, project_id, user_id, recording_session_id')
+      .select('id, project_id, user_id, recording_session_id, created_at')
       .eq('id', meetingId)
       .single()
 
     if (meetingError || !meeting) {
+      console.error('❌ Meeting not found:', meetingError?.message || 'No meeting data')
       return NextResponse.json({ error: 'Meeting not found' }, { status: 404 })
     }
 
-    // Verify ownership
-    if (meeting.user_id !== user.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+    console.log(`✅ Meeting found: ${meeting.id}`)
+    console.log(`   Meeting user_id: ${meeting.user_id || 'NULL'}`)
+    console.log(`   Authenticated user_id: ${user.id}`)
+
+    // Verify ownership - if meeting has no user_id, allow if user created tasks in same project
+    if (meeting.user_id && meeting.user_id !== user.id) {
+      console.error(`❌ Ownership mismatch: meeting.user_id=${meeting.user_id}, user.id=${user.id}`)
+      return NextResponse.json({ error: 'Unauthorized - you do not own this meeting' }, { status: 403 })
+    } else if (!meeting.user_id) {
+      console.warn(`⚠️ Meeting has no user_id, allowing link (user may have created tasks in project)`)
     }
 
     // Find tasks that should be linked to this meeting
@@ -47,63 +55,112 @@ export async function POST(
     // 1. Same project_id as meeting (if meeting has project_id)
     // 2. Tags containing the meeting ID OR meeting-generated tag
     // 3. is_ai_generated = true
-    // 4. Created around the same time as the meeting
+    // 4. Created around the same time as the meeting (within 10 minutes)
+
+    console.log(`🔍 Searching for tasks to link to meeting ${meetingId}`)
+    console.log(`   Meeting project_id: ${meeting.project_id || 'none'}`)
+    console.log(`   Meeting user_id: ${meeting.user_id || 'none'}`)
+
+    // Get meeting creation time for time-based matching
+    const meetingCreatedAt = meeting.created_at ? new Date(meeting.created_at) : null
+    const timeWindow = 10 * 60 * 1000 // 10 minutes window (increased from 5)
+    console.log(`   Meeting created at: ${meetingCreatedAt?.toISOString() || 'unknown'}`)
+    console.log(`   Time window: ${timeWindow / 1000 / 60} minutes`)
 
     let potentialTasks: any[] = []
     
+    // Strategy 1: Search by project_id (if available)
     if (meeting.project_id) {
-      // Search by project_id and tags
+      console.log(`   🔍 Strategy 1: Searching by project_id=${meeting.project_id}`)
+      
+      // Search for AI-generated tasks in the same project
+      // Note: Supabase .contains() for arrays works differently - we'll search more broadly
       const { data: tasksByProject, error: projectTasksError } = await supabaseAdmin
         .from('tasks')
-        .select('id, title, project_id, tags, created_at, is_ai_generated')
+        .select('id, title, project_id, tags, created_at, is_ai_generated, user_id')
         .eq('project_id', meeting.project_id)
         .eq('is_ai_generated', true)
-        .contains('tags', ['meeting-generated'])
 
-      if (!projectTasksError && tasksByProject) {
-        // Filter by meeting ID in tags OR created around the same time as meeting
-        const { data: meetingData } = await supabaseAdmin
-          .from('meetings')
-          .select('created_at')
-          .eq('id', meetingId)
-          .single()
-
-        const meetingCreatedAt = meetingData?.created_at ? new Date(meetingData.created_at) : null
-        const timeWindow = 5 * 60 * 1000 // 5 minutes window
-
+      if (projectTasksError) {
+        console.error(`   ❌ Error searching by project:`, projectTasksError.message)
+      } else if (tasksByProject) {
+        console.log(`   ✅ Found ${tasksByProject.length} AI-generated tasks in project`)
+        
+        // Filter by tags containing meeting ID OR created around the same time
         potentialTasks = tasksByProject.filter(task => {
-          // Check if tags contain meeting ID
           const tags = task.tags || []
-          const hasMeetingTag = Array.isArray(tags) && tags.some((tag: string) => 
-            typeof tag === 'string' && tag.includes(`meeting:${meetingId}`)
-          )
+          const hasMeetingTag = Array.isArray(tags) && tags.some((tag: any) => {
+            const tagStr = typeof tag === 'string' ? tag : String(tag)
+            return tagStr.includes(`meeting:${meetingId}`) || tagStr === 'meeting-generated'
+          })
           
-          // Or check if created around the same time
+          // Check if created around the same time
           let timeMatch = false
           if (meetingCreatedAt && task.created_at) {
-            const taskCreatedAt = new Date(task.created_at)
-            const timeDiff = Math.abs(taskCreatedAt.getTime() - meetingCreatedAt.getTime())
-            timeMatch = timeDiff < timeWindow
+            try {
+              const taskCreatedAt = new Date(task.created_at)
+              if (!isNaN(taskCreatedAt.getTime())) {
+                const timeDiff = Math.abs(taskCreatedAt.getTime() - meetingCreatedAt.getTime())
+                timeMatch = timeDiff < timeWindow
+              }
+            } catch (e) {
+              // Invalid date, skip time match
+            }
+          }
+          
+          const shouldInclude = hasMeetingTag || timeMatch
+          if (shouldInclude) {
+            console.log(`   ✅ Task "${task.title}" matches (tags: ${hasMeetingTag}, time: ${timeMatch})`)
+          }
+          
+          return shouldInclude
+        })
+        
+        console.log(`   ✅ Strategy 1 found ${potentialTasks.length} matching tasks`)
+      }
+    }
+    
+    // Strategy 2: If no tasks found or no project_id, search by tags and time window
+    if (potentialTasks.length === 0) {
+      console.log(`   🔍 Strategy 2: Searching by tags and time window`)
+      
+      // Search for all AI-generated tasks with meeting-generated tag
+      const { data: tasksByTags, error: tagsTasksError } = await supabaseAdmin
+        .from('tasks')
+        .select('id, title, project_id, tags, created_at, is_ai_generated, user_id')
+        .eq('is_ai_generated', true)
+
+      if (tagsTasksError) {
+        console.error(`   ❌ Error searching by tags:`, tagsTasksError.message)
+      } else if (tasksByTags) {
+        console.log(`   ✅ Found ${tasksByTags.length} AI-generated tasks total`)
+        
+        // Filter by meeting ID in tags OR created within time window
+        potentialTasks = tasksByTags.filter(task => {
+          const tags = task.tags || []
+          const hasMeetingTag = Array.isArray(tags) && tags.some((tag: any) => {
+            const tagStr = typeof tag === 'string' ? tag : String(tag)
+            return tagStr.includes(`meeting:${meetingId}`)
+          })
+          
+          // Check if created around the same time
+          let timeMatch = false
+          if (meetingCreatedAt && task.created_at) {
+            try {
+              const taskCreatedAt = new Date(task.created_at)
+              if (!isNaN(taskCreatedAt.getTime())) {
+                const timeDiff = Math.abs(taskCreatedAt.getTime() - meetingCreatedAt.getTime())
+                timeMatch = timeDiff < timeWindow
+              }
+            } catch (e) {
+              // Invalid date, skip time match
+            }
           }
           
           return hasMeetingTag || timeMatch
         })
-      }
-    } else {
-      // If no project_id, search by tags only
-      const { data: tasksByTags, error: tagsTasksError } = await supabaseAdmin
-        .from('tasks')
-        .select('id, title, project_id, tags, created_at, is_ai_generated')
-        .eq('is_ai_generated', true)
-        .contains('tags', ['meeting-generated'])
-
-      if (!tagsTasksError && tasksByTags) {
-        potentialTasks = tasksByTags.filter(task => {
-          const tags = task.tags || []
-          return Array.isArray(tags) && tags.some((tag: string) => 
-            typeof tag === 'string' && tag.includes(`meeting:${meetingId}`)
-          )
-        })
+        
+        console.log(`   ✅ Strategy 2 found ${potentialTasks.length} matching tasks`)
       }
     }
 

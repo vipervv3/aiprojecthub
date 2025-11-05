@@ -369,48 +369,56 @@ export default function MeetingDetailPage() {
         console.warn('   Task error:', taskError?.message || 'none')
         console.warn('   Task data count:', taskData?.length || 0)
         
-        // ✅ AUTO-FIX: If tasks exist but aren't linked, try to link them
-        if (meetingData && meetingData.action_items && Array.isArray(meetingData.action_items) && meetingData.action_items.length > 0) {
-          console.warn(`   ⚠️  Found ${meetingData.action_items.length} action_items in meeting record, but no tasks in junction table`)
-          console.warn(`   🔧 Attempting to auto-link existing tasks...`)
-          
-          try {
-            // Get auth token
-            const { data: { session } } = await supabase.auth.getSession()
-            if (session) {
-              const linkResponse = await fetch(`/api/meetings/${actualMeetingId}/link-tasks`, {
-                method: 'POST',
-                headers: {
-                  'Authorization': `Bearer ${session.access_token}`,
-                  'Content-Type': 'application/json',
-                },
-              })
+        // ✅ AUTO-FIX: Always attempt to link tasks if none are found (not just when action_items exist)
+        console.warn(`   🔧 Attempting to auto-link existing tasks...`)
+        console.warn(`   Meeting project_id: ${meetingData?.project_id || 'none'}`)
+        console.warn(`   Meeting user_id: ${meetingData?.user_id || 'none'}`)
+        
+        try {
+          // Get auth token
+          const { data: { session } } = await supabase.auth.getSession()
+          if (session) {
+            console.log(`   🔑 Auth token available, calling link-tasks API...`)
+            const linkResponse = await fetch(`/api/meetings/${actualMeetingId}/link-tasks`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${session.access_token}`,
+                'Content-Type': 'application/json',
+              },
+            })
+            
+            const linkText = await linkResponse.text()
+            console.log(`   📡 Link API response status: ${linkResponse.status}`)
+            console.log(`   📡 Link API response: ${linkText.substring(0, 200)}`)
+            
+            if (linkResponse.ok) {
+              const linkData = JSON.parse(linkText)
+              console.log(`   ✅ Auto-linked ${linkData.linked || 0} tasks`)
               
-              if (linkResponse.ok) {
-                const linkData = await linkResponse.json()
-                console.log(`   ✅ Auto-linked ${linkData.linked || 0} tasks`)
+              // Reload tasks after linking
+              if (linkData.linked > 0) {
+                const { data: reloadedTaskData } = await supabase
+                  .from('meeting_tasks')
+                  .select(`task_id, tasks (*)`)
+                  .eq('meeting_id', actualMeetingId)
                 
-                // Reload tasks after linking
-                if (linkData.linked > 0) {
-                  const { data: reloadedTaskData } = await supabase
-                    .from('meeting_tasks')
-                    .select(`task_id, tasks (*)`)
-                    .eq('meeting_id', actualMeetingId)
-                  
-                  if (reloadedTaskData && reloadedTaskData.length > 0) {
-                    validTasks = reloadedTaskData
-                      .map((mt: any) => mt.tasks)
-                      .filter((task: any) => task && task.id)
-                    console.log(`   ✅ Reloaded ${validTasks.length} tasks after linking`)
-                  }
+                if (reloadedTaskData && reloadedTaskData.length > 0) {
+                  validTasks = reloadedTaskData
+                    .map((mt: any) => mt.tasks)
+                    .filter((task: any) => task && task.id)
+                  console.log(`   ✅ Reloaded ${validTasks.length} tasks after linking`)
                 }
               } else {
-                console.warn(`   ⚠️  Auto-link failed:`, await linkResponse.text())
+                console.warn(`   ⚠️  No tasks were linked (found: ${linkData.linked || 0})`)
               }
+            } else {
+              console.error(`   ❌ Auto-link failed with status ${linkResponse.status}:`, linkText)
             }
-          } catch (linkError) {
-            console.error('   ❌ Error auto-linking tasks:', linkError)
+          } else {
+            console.error(`   ❌ No auth session available for auto-linking`)
           }
+        } catch (linkError) {
+          console.error('   ❌ Error auto-linking tasks:', linkError)
         }
       }
       
