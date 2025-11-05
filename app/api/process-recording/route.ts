@@ -389,6 +389,7 @@ Generate ONLY the title (no quotes, no JSON, no explanation, no prefix like "Tit
     // 5. Create tasks in tasks table
     let createdTasksCount = 0
     let tasksToCreate: any[] = []
+    let createdTaskIds: string[] = [] // Store task IDs for verification
     
     // Try to use extracted tasks first
     if (taskExtraction.tasks && taskExtraction.tasks.length > 0) {
@@ -511,7 +512,10 @@ Generate ONLY the title (no quotes, no JSON, no explanation, no prefix like "Tit
         console.log(`✅ Created ${createdTasksCount} tasks`)
         
         if (createdTasks && createdTasks.length > 0) {
-          console.log(`   Task IDs:`, createdTasks.map((t: any) => t.id).join(', '))
+          // Store task IDs for verification outside this block
+          createdTaskIds = createdTasks.map((t: any) => t.id)
+          
+          console.log(`   Task IDs:`, createdTaskIds.join(', '))
           console.log(`   Task project IDs:`, createdTasks.map((t: any) => t.project_id || 'NONE').join(', '))
           
           // ✅ VERIFY: Check if any tasks have project_id set
@@ -632,11 +636,11 @@ Generate ONLY the title (no quotes, no JSON, no explanation, no prefix like "Tit
 
     // Get actual task data to verify project_id
     let actualTasks: any[] = []
-    if (createdTasksCount > 0) {
+    if (createdTasksCount > 0 && createdTaskIds.length > 0) {
       const { data: verifiedTasks } = await supabase
         .from('tasks')
         .select('id, title, project_id')
-        .in('id', createdTasks?.map((t: any) => t.id) || [])
+        .in('id', createdTaskIds)
       
       actualTasks = verifiedTasks || []
       console.log(`🔍 Verified tasks after creation:`)
