@@ -415,14 +415,21 @@ Generate ONLY the title (no quotes, no JSON, no explanation, no prefix like "Tit
       .eq('id', sessionId)
 
     console.log(`🎉 AI processing complete for session: ${sessionId}`)
+    console.log(`📊 Final Summary:`)
+    console.log(`   Meeting ID: ${meeting.id}`)
+    console.log(`   Meeting Title: ${meetingTitle}`)
+    console.log(`   Project ID: ${finalProjectId || 'NONE'}`)
+    console.log(`   Tasks Created: ${createdTasksCount}`)
+    console.log(`   Tasks Linked: ${createdTasksCount > 0 ? 'YES' : 'NO'}`)
 
     return NextResponse.json({
       success: true,
       meeting,
       tasksCreated: createdTasksCount,
+      projectId: finalProjectId || null,
       summary: taskExtraction.summary,
       confidence: taskExtraction.confidence,
-      message: `Created meeting "${meetingTitle}" with ${createdTasksCount} tasks`
+      message: `Created meeting "${meetingTitle}" with ${createdTasksCount} tasks${finalProjectId ? ` linked to project` : ' (no project association)'}`
     })
   } catch (error: any) {
     // Better error serialization - handle all error types

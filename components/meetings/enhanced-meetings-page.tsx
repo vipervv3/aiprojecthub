@@ -412,9 +412,26 @@ export default function EnhancedMeetingsPage() {
             const sessionId = meeting._recordingSessionId
             try {
               console.log(`🤖 Auto-triggering processing for: ${sessionId}`)
-              // Get projectId from meeting.project_id OR meeting.metadata?.projectId
-              const projectId = meeting.project_id || (meeting as any).metadata?.projectId || null
-              console.log(`   Project ID for processing: ${projectId || 'none'}`)
+              
+              // ✅ Get projectId from multiple sources:
+              // 1. From meeting.project_id (which comes from session.metadata.projectId)
+              // 2. Directly from recording session if available
+              let projectId = meeting.project_id || null
+              
+              // If not found, try to get it directly from the recording session
+              if (!projectId && supabase) {
+                const { data: sessionData } = await supabase
+                  .from('recording_sessions')
+                  .select('project_id, metadata')
+                  .eq('id', sessionId)
+                  .maybeSingle()
+                
+                if (sessionData) {
+                  projectId = (sessionData as any).project_id || sessionData.metadata?.projectId || null
+                }
+              }
+              
+              console.log(`   ✅ Project ID for processing: ${projectId || 'NONE (tasks will not be linked to project!)'}`)
               
               const response = await fetch('/api/process-recording', {
                 method: 'POST',
@@ -422,22 +439,29 @@ export default function EnhancedMeetingsPage() {
                 body: JSON.stringify({
                   sessionId,
                   userId: user?.id,
-                  projectId: projectId
+                  projectId: projectId // ✅ Pass project context
                 })
               })
               
               if (response.ok) {
                 const result = await response.json()
                 console.log(`✅ Auto-processed recording: ${sessionId}`, result)
+                console.log(`   Tasks created: ${result.tasksCreated || 0}`)
+                console.log(`   Meeting ID: ${result.meeting?.id || 'none'}`)
+                
+                if (result.tasksCreated === 0) {
+                  console.warn(`   ⚠️  WARNING: No tasks were created!`)
+                }
+                
                 // Reload meetings after a short delay to show updated status
                 setTimeout(() => {
                   console.log('🔄 Reloading meetings after auto-processing...')
                   loadMeetings()
                 }, 3000)
               } else {
-              const error = await response.json()
-              console.error(`❌ Auto-processing failed for ${sessionId}:`, error)
-              console.error('   Error details:', error.details || error.message || JSON.stringify(error))
+                const error = await response.json()
+                console.error(`❌ Auto-processing failed for ${sessionId}:`, error)
+                console.error('   Error details:', error.details || error.message || JSON.stringify(error))
               }
             } catch (error) {
               console.error(`❌ Error auto-processing ${sessionId}:`, error)
