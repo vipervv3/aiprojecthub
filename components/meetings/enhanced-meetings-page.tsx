@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { Calendar, Clock, Users, Video, MapPin, Plus, Search, Filter, Edit, Trash2, Eye, CheckCircle, XCircle, AlertCircle, FileText, RefreshCw } from 'lucide-react'
 import { useAuth } from '@/app/providers'
 import { dataService } from '@/lib/data-service'
@@ -198,52 +198,77 @@ export default function EnhancedMeetingsPage() {
   const [selectedMeeting, setSelectedMeeting] = useState<Meeting | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
+  const meetingsRef = useRef<Meeting[]>([])
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
+  // Update ref when meetings change
+  useEffect(() => {
+    meetingsRef.current = meetings
+  }, [meetings])
+
+  // Initial load and setup polling
   useEffect(() => {
     if (user) {
       loadMeetings()
+    }
+  }, [user])
+
+  // Separate polling effect - only runs when user changes, not when meetings change
+  useEffect(() => {
+    if (!user) return
+
+    // Clear any existing interval
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current)
+    }
+
+    // ✅ Client-side polling for transcriptions in progress
+    pollingIntervalRef.current = setInterval(async () => {
+      // Use ref to get current meetings without causing re-render loop
+      const currentMeetings = meetingsRef.current
       
-      // ✅ Client-side polling for transcriptions in progress
-      const pollInterval = setInterval(async () => {
-        // Only poll if we have recordings that are still transcribing
-        const transcribingRecordings = meetings.filter((m: any) => 
-          m._transcriptionStatus === 'pending' || m._transcriptionStatus === 'processing'
-        )
+      // Only poll if we have recordings that are still transcribing
+      const transcribingRecordings = currentMeetings.filter((m: any) => 
+        m._transcriptionStatus === 'pending' || m._transcriptionStatus === 'processing'
+      )
+      
+      if (transcribingRecordings.length > 0) {
+        console.log(`🔄 Checking ${transcribingRecordings.length} recording(s) for transcription updates...`)
         
-        if (transcribingRecordings.length > 0) {
-          console.log(`🔄 Checking ${transcribingRecordings.length} recording(s) for transcription updates...`)
-          
-          // Check each recording's transcription status
-          for (const meeting of transcribingRecordings) {
-            if (meeting._recordingSessionId) {
-              try {
-                const response = await fetch('/api/check-transcription', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    sessionId: meeting._recordingSessionId
-                  })
+        // Check each recording's transcription status
+        for (const meeting of transcribingRecordings) {
+          if (meeting._recordingSessionId) {
+            try {
+              const response = await fetch('/api/check-transcription', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  sessionId: meeting._recordingSessionId
                 })
-                
-                if (response.ok) {
-                  const data = await response.json()
-                  if (data.status === 'completed') {
-                    console.log(`✅ Transcription completed for ${meeting._recordingSessionId}`)
-                    // Reload meetings to show updated status
-                    setTimeout(() => loadMeetings(), 1000)
-                  }
+              })
+              
+              if (response.ok) {
+                const data = await response.json()
+                if (data.status === 'completed') {
+                  console.log(`✅ Transcription completed for ${meeting._recordingSessionId}`)
+                  // Reload meetings to show updated status (this will update the ref)
+                  loadMeetings()
                 }
-              } catch (error) {
-                console.error(`Error checking transcription for ${meeting._recordingSessionId}:`, error)
               }
+            } catch (error) {
+              console.error(`Error checking transcription for ${meeting._recordingSessionId}:`, error)
             }
           }
         }
-      }, 15000) // Poll every 15 seconds
-      
-      return () => clearInterval(pollInterval)
+      }
+    }, 15000) // Poll every 15 seconds
+    
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current)
+      }
     }
-  }, [user, meetings])
+  }, [user]) // Only depend on user, not meetings
 
   const loadMeetings = async () => {
     try {
