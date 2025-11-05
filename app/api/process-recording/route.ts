@@ -146,13 +146,14 @@ Generate ONLY the title text (no quotes, no JSON, no explanation, just the title
     }
 
     // 4. Create meeting record
-    const meetingData = {
+    // Add project_id if provided
+    const meetingData: any = {
       title: meetingTitle,
       description: `AI-processed recording from ${new Date(session.created_at).toLocaleString()}`,
       scheduled_at: session.created_at,
       duration: session.duration || 0,
       recording_session_id: sessionId,
-      summary: taskExtraction.summary,
+      summary: taskExtraction.summary || 'No summary available',
       action_items: taskExtraction.tasks.map(t => ({
         title: t.title,
         description: t.description,
@@ -169,6 +170,19 @@ Generate ONLY the title text (no quotes, no JSON, no explanation, just the title
         transcription_provider: 'assemblyai'
       }
     }
+    
+    // Add project_id if provided
+    if (projectId) {
+      meetingData.project_id = projectId
+      console.log(`📁 Linking meeting to project: ${projectId}`)
+    }
+
+    console.log('📝 Creating meeting with data:', {
+      title: meetingData.title,
+      hasSummary: !!meetingData.summary,
+      actionItemsCount: meetingData.action_items.length,
+      projectId: meetingData.project_id || 'none'
+    })
 
     const { data: meeting, error: meetingError } = await supabase
       .from('meetings')
@@ -177,8 +191,12 @@ Generate ONLY the title text (no quotes, no JSON, no explanation, just the title
       .single()
 
     if (meetingError) {
-      console.error('Error creating meeting:', meetingError)
-      throw meetingError
+      console.error('❌ Error creating meeting:', meetingError)
+      console.error('   Error code:', meetingError.code)
+      console.error('   Error message:', meetingError.message)
+      console.error('   Error details:', meetingError.details)
+      console.error('   Error hint:', meetingError.hint)
+      throw new Error(`Database error: ${meetingError.message} (${meetingError.code || 'unknown'})`)
     }
 
     console.log(`✅ Meeting created: ${meeting.id}`)
