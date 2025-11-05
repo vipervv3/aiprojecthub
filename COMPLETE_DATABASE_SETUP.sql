@@ -275,6 +275,42 @@ ALTER TABLE calendar_syncs DISABLE ROW LEVEL SECURITY;
 ALTER TABLE synced_events DISABLE ROW LEVEL SECURITY;
 
 -- ============================================================================
+-- ENSURE USERS TABLE HAS ALL REQUIRED COLUMNS
+-- ============================================================================
+DO $$ 
+BEGIN
+  -- Add user_metadata column if it doesn't exist
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'users' AND column_name = 'user_metadata'
+  ) THEN
+    ALTER TABLE users ADD COLUMN user_metadata JSONB DEFAULT '{}';
+  END IF;
+  
+  -- Add other columns that might be missing
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'users' AND column_name = 'avatar_url'
+  ) THEN
+    ALTER TABLE users ADD COLUMN avatar_url TEXT;
+  END IF;
+  
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'users' AND column_name = 'preferences'
+  ) THEN
+    ALTER TABLE users ADD COLUMN preferences JSONB DEFAULT '{}';
+  END IF;
+  
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'users' AND column_name = 'timezone'
+  ) THEN
+    ALTER TABLE users ADD COLUMN timezone VARCHAR DEFAULT 'UTC';
+  END IF;
+END $$;
+
+-- ============================================================================
 -- INSERT DEMO USER
 -- ============================================================================
 INSERT INTO users (id, email, name, user_metadata) VALUES 

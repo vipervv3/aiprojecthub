@@ -8,6 +8,13 @@ import RequireAuth from '@/components/auth/require-auth'
 import { ArrowLeft, Calendar, Clock, FileText, CheckSquare, Loader, AlertCircle, Trash2, Edit2, RefreshCw, Sparkles } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 
+// Helper to reload meeting data
+const reloadMeetingData = () => {
+  if (typeof window !== 'undefined') {
+    window.location.reload()
+  }
+}
+
 interface Meeting {
   id: string
   title: string
@@ -71,7 +78,10 @@ export default function MeetingDetailPage() {
 
       // Load meeting with recording session and project joined
       console.log('📋 Loading meeting:', meetingId)
-      const { data: meetingData, error: meetingError } = await supabase
+      
+      // First, try to load as a meeting ID
+      // Use regular left join (not inner join) to avoid 406 errors
+      let { data: meetingData, error: meetingError } = await supabase
         .from('meetings')
         .select(`
           *,
@@ -85,17 +95,112 @@ export default function MeetingDetailPage() {
             created_at,
             updated_at,
             metadata
-          ),
-          projects (
-            id,
-            name,
-            status
           )
         `)
         .eq('id', meetingId)
-        .single()
+        .maybeSingle()
 
-      if (meetingError) throw meetingError
+      // Handle 406 errors gracefully (this happens when maybeSingle() returns 0 rows in some Supabase versions)
+      if (meetingError && (meetingError.code === 'PGRST116' || meetingError.message?.includes('0 rows') || meetingError.message?.includes('Cannot coerce'))) {
+        console.log('⚠️ Meeting not found (406 error), this might be a recording session ID')
+        meetingError = null // Reset to check for recording session
+        meetingData = null
+      }
+
+      // If we have meeting data, load project separately
+      if (meetingData && meetingData.project_id) {
+        const { data: projectData } = await supabase
+          .from('projects')
+          .select('id, name, status')
+          .eq('id', meetingData.project_id)
+          .maybeSingle()
+        
+        if (projectData) {
+          meetingData.projects = projectData
+        }
+      }
+
+      // If not found as meeting, check if it's a recording session ID (with "recording-" prefix)
+      if (!meetingData && !meetingError) {
+        let recordingSessionId = meetingId
+        if (meetingId.startsWith('recording-')) {
+          recordingSessionId = meetingId.replace('recording-', '')
+        }
+        
+        console.log('⚠️ Not found as meeting ID, checking if it\'s a recording session ID:', recordingSessionId)
+        const { data: recordingSession, error: sessionError } = await supabase
+          .from('recording_sessions')
+          .select('*')
+          .eq('id', recordingSessionId)
+          .maybeSingle()
+        
+        if (recordingSession && !sessionError) {
+          console.log('✅ Found as recording session - attempting to process it')
+          
+          // Check if it has transcription and can be processed
+          if (recordingSession.transcription_status === 'completed' && recordingSession.transcription_text) {
+            // Get current user
+            const { data: { user: currentUser } } = await supabase.auth.getUser()
+            const projectId = recordingSession.metadata?.projectId || null
+            
+            // Try to process it
+            try {
+              const response = await fetch('/api/process-recording', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  sessionId: recordingSessionId,
+                  userId: currentUser?.id,
+                  projectId: projectId
+                })
+              })
+              
+              if (response.ok) {
+                toast.success('Recording processed! Reloading...')
+                // Reload after a short delay
+                setTimeout(() => {
+                  window.location.reload()
+                }, 2000)
+                return
+              } else {
+                const errorData = await response.json()
+                throw new Error(errorData.error || 'Processing failed')
+              }
+            } catch (processError: any) {
+              console.error('Error processing recording:', processError)
+              throw new Error(`Failed to process recording: ${processError.message}`)
+            }
+          } else {
+            // Recording exists but no transcription yet
+            toast.error('This recording does not have a completed transcription yet. Please wait for transcription to complete.')
+            router.push('/meetings')
+            return
+          }
+        } else {
+          // Not a recording session either - truly not found
+          console.error('❌ Meeting not found:', meetingId)
+          console.error('   Not found in meetings table')
+          console.error('   Not found in recording_sessions table')
+          toast.error('Meeting not found')
+          router.push('/meetings')
+          return
+        }
+      }
+
+      // Final validation
+      if (meetingError && meetingError.code !== 'PGRST116') {
+        console.error('❌ Error loading meeting:', meetingError)
+        toast.error('Failed to load meeting: ' + meetingError.message)
+        router.push('/meetings')
+        return
+      }
+      
+      if (!meetingData) {
+        console.error('❌ Meeting data is null after all checks')
+        toast.error('Meeting not found')
+        router.push('/meetings')
+        return
+      }
       
       // ✅ SECURITY CHECK: Verify user owns this meeting through recording session
       if (meetingData.recording_sessions) {

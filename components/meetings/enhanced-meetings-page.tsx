@@ -261,36 +261,53 @@ export default function EnhancedMeetingsPage() {
         console.log(`📹 Found ${meetingsMap.size} meetings associated with recordings`)
         
         // Transform recording sessions to Meeting format
-        const transformedMeetings: Meeting[] = recordingSessions.map((session: any) => {
-          const associatedMeeting = meetingsMap.get(session.id)
-          const createdDate = new Date(session.created_at)
-          
-          // ✅ IMPORTANT: Must use meeting ID if it exists, for proper deletion
-          const meetingId = associatedMeeting?.id
-          
-          if (!meetingId) {
-            console.warn(`⚠️ Recording session ${session.id} has no associated meeting! Cannot delete properly.`)
-          }
-          
-          return {
-            id: meetingId || session.id, // Prefer meeting ID for proper deletion
-            title: associatedMeeting?.title || session.title || `Recording - ${createdDate.toLocaleDateString()}`,
-            description: associatedMeeting?.description || associatedMeeting?.summary || '',
-            date: createdDate.toISOString().split('T')[0],
-            start_time: createdDate.toTimeString().slice(0, 5),
-            end_time: new Date(createdDate.getTime() + (session.duration || 30) * 60000).toTimeString().slice(0, 5),
-            location: associatedMeeting?.location || '',
-            meeting_type: 'video_call',
-            status: 'completed',
-            attendees: Array.isArray(associatedMeeting?.attendees) ? associatedMeeting.attendees : [],
-            project_id: associatedMeeting?.project_id,
-            agenda: Array.isArray(associatedMeeting?.action_items) ? associatedMeeting.action_items : [],
-            notes: session.transcription_text || associatedMeeting?.summary || '',
-            recording_url: associatedMeeting?.recording_url,
-            created_at: session.created_at,
-            updated_at: session.updated_at
-          }
-        })
+        // ✅ Filter out orphaned recordings or mark them for processing
+        const transformedMeetings: Meeting[] = recordingSessions
+          .filter((session: any) => {
+            // Only show recordings that have meetings OR have transcriptions ready for processing
+            const hasMeeting = meetingsMap.has(session.id)
+            const hasTranscription = session.transcription_status === 'completed' && session.transcription_text
+            
+            if (!hasMeeting && !hasTranscription) {
+              console.log(`⚠️ Skipping recording ${session.id} - no meeting and no transcription`)
+              return false
+            }
+            
+            return true
+          })
+          .map((session: any) => {
+            const associatedMeeting = meetingsMap.get(session.id)
+            const createdDate = new Date(session.created_at)
+            
+            // ✅ IMPORTANT: Must use meeting ID if it exists
+            const meetingId = associatedMeeting?.id
+            const isOrphaned = !meetingId && session.transcription_status === 'completed'
+            
+            if (isOrphaned) {
+              console.warn(`⚠️ Recording session ${session.id} has no associated meeting but has transcription. Needs processing.`)
+            }
+            
+            return {
+              id: meetingId || `recording-${session.id}`, // Use prefixed ID for orphaned recordings
+              title: associatedMeeting?.title || session.title || `Recording - ${createdDate.toLocaleDateString()}`,
+              description: associatedMeeting?.description || associatedMeeting?.summary || (isOrphaned ? '⏳ Processing...' : ''),
+              date: createdDate.toISOString().split('T')[0],
+              start_time: createdDate.toTimeString().slice(0, 5),
+              end_time: new Date(createdDate.getTime() + (session.duration || 30) * 60000).toTimeString().slice(0, 5),
+              location: associatedMeeting?.location || '',
+              meeting_type: 'video_call',
+              status: isOrphaned ? 'processing' : 'completed',
+              attendees: Array.isArray(associatedMeeting?.attendees) ? associatedMeeting.attendees : [],
+              project_id: associatedMeeting?.project_id || session.metadata?.projectId,
+              agenda: Array.isArray(associatedMeeting?.action_items) ? associatedMeeting.action_items : [],
+              notes: session.transcription_text || associatedMeeting?.summary || '',
+              recording_url: associatedMeeting?.recording_url,
+              created_at: session.created_at,
+              updated_at: session.updated_at,
+              _isOrphaned: isOrphaned, // Internal flag
+              _recordingSessionId: session.id // Store for processing
+            }
+          })
         
         console.log(`✅ Transformed ${transformedMeetings.length} recordings for display`)
         if (transformedMeetings.length > 0) {
@@ -530,17 +547,49 @@ export default function EnhancedMeetingsPage() {
                   </div>
                   
                   <div className="flex items-center gap-2 sm:ml-4 flex-shrink-0">
-                    {/* View Details button - navigates to meeting detail page */}
+                    {/* View Details button - navigates to meeting detail page or processes orphaned recording */}
                     <button
-                      onClick={(e) => {
+                      onClick={async (e) => {
                         e.stopPropagation()
-                        router.push(`/meetings/${meeting.id}`)
+                        // Check if this is an orphaned recording
+                        if ((meeting as any)._isOrphaned && (meeting as any)._recordingSessionId) {
+                          const sessionId = (meeting as any)._recordingSessionId
+                          console.log('🔄 Processing orphaned recording:', sessionId)
+                          toast('Processing recording... This may take a moment.')
+                          
+                          // Trigger AI processing
+                          try {
+                            const response = await fetch('/api/process-recording', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                sessionId: sessionId,
+                                userId: user?.id,
+                                projectId: meeting.project_id || (meeting as any).metadata?.projectId
+                              })
+                            })
+                            
+                            if (response.ok) {
+                              toast.success('Recording processed! Refreshing...')
+                              loadMeetings() // Reload to show the new meeting
+                            } else {
+                              const error = await response.json()
+                              toast.error('Failed to process: ' + (error.error || 'Unknown error'))
+                            }
+                          } catch (error) {
+                            console.error('Error processing recording:', error)
+                            toast.error('Failed to process recording')
+                          }
+                        } else {
+                          // Normal meeting - navigate to detail page
+                          router.push(`/meetings/${meeting.id}`)
+                        }
                       }}
                       className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-3 py-2 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900/50 flex items-center gap-2 text-xs sm:text-sm touch-manipulation"
-                      title="View transcript and tasks"
+                      title={(meeting as any)._isOrphaned ? "Process recording" : "View transcript and tasks"}
                     >
                       <FileText className="h-4 w-4" />
-                      <span className="hidden sm:inline">Details</span>
+                      <span className="hidden sm:inline">{(meeting as any)._isOrphaned ? "Process" : "Details"}</span>
                     </button>
                     
                     {/* Delete button */}
