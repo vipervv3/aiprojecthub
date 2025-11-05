@@ -324,24 +324,40 @@ export default function MeetingDetailPage() {
         setRecording(null)
       }
 
-      // Load tasks
-      console.log('✅ Loading tasks...')
+      // Load tasks - use actual meeting ID (not recording- prefix)
+      console.log('✅ Loading tasks for meeting:', actualMeetingId)
       const { data: taskData, error: taskError } = await supabase
         .from('meeting_tasks')
         .select(`
           task_id,
           tasks (*)
         `)
-        .eq('meeting_id', meetingId)
+        .eq('meeting_id', actualMeetingId)
 
       if (taskError) {
-        console.log('❌ Tasks error:', taskError.message)
+        console.error('❌ Tasks error:', taskError)
+        console.error('   Error code:', taskError.code)
+        console.error('   Error message:', taskError.message)
+        console.error('   Meeting ID used:', actualMeetingId)
       } else {
-        console.log('✅ Tasks loaded:', taskData?.length || 0)
+        console.log('✅ Tasks query successful')
+        console.log('   Raw task data:', taskData?.length || 0, 'links found')
+        if (taskData && taskData.length > 0) {
+          console.log('   Task links:', taskData.map((mt: any) => ({ linkId: mt.task_id, task: mt.tasks?.id || 'missing' })))
+        }
       }
 
-      if (!taskError && taskData) {
-        setTasks(taskData.map((mt: any) => mt.tasks))
+      if (!taskError && taskData && taskData.length > 0) {
+        // Filter out any null tasks and ensure we have valid task objects
+        const validTasks = taskData
+          .map((mt: any) => mt.tasks)
+          .filter((task: any) => task && task.id) // Ensure task exists and has ID
+        
+        console.log('✅ Valid tasks extracted:', validTasks.length)
+        setTasks(validTasks)
+      } else {
+        console.log('⚠️ No tasks found or error occurred')
+        setTasks([])
       }
     } catch (error) {
       console.error('Error loading meeting data:', error)
