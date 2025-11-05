@@ -214,18 +214,25 @@ Generate ONLY the title (no quotes, no JSON, no explanation, no prefix like "Tit
         .substring(0, 60) // Ensure max 60 chars
       
       if (cleanedTitle && cleanedTitle.length >= 10 && cleanedTitle.length <= 60) {
-        // Additional validation: reject generic titles
-        const genericTitles = ['meeting', 'recording', 'call', 'conversation', 'discussion']
-        const isGeneric = genericTitles.some(g => cleanedTitle.toLowerCase().includes(g) && cleanedTitle.length < 20)
+        // ✅ Less strict validation - only reject if title is ONLY a generic word
+        // Allow descriptive titles even if they contain generic words
+        const genericWords = ['meeting', 'recording', 'call', 'conversation', 'discussion']
+        const lowerTitle = cleanedTitle.toLowerCase().trim()
         
-        if (!isGeneric) {
+        // Check if title is JUST a generic word (not descriptive)
+        const isOnlyGeneric = genericWords.includes(lowerTitle) || 
+          (lowerTitle.length < 15 && genericWords.some(g => lowerTitle === g || lowerTitle === `${g} ${new Date().getFullYear()}`))
+        
+        if (!isOnlyGeneric) {
           meetingTitle = cleanedTitle
           console.log(`✅ Generated intelligent title: "${meetingTitle}"`)
+          console.log(`   Title length: ${meetingTitle.length} chars`)
         } else {
-          console.warn(`⚠️ Title too generic, using default: "${cleanedTitle}"`)
+          console.warn(`⚠️ Title too generic (only generic word), using default: "${cleanedTitle}"`)
         }
       } else {
         console.warn(`⚠️ Title invalid (length: ${cleanedTitle?.length || 0}), using default. Raw: "${generatedTitle}"`)
+        console.warn(`   Cleaned title was: "${cleanedTitle}"`)
       }
     } catch (titleError: any) {
       console.error('❌ Error generating title:', titleError)
