@@ -134,13 +134,30 @@ export default function EnhancedTasksPage() {
 
   const handleDeleteTask = async (taskId: string) => {
     try {
-      if (window.confirm('Are you sure you want to delete this task?')) {
-        setTasks(prev => prev.filter(t => t.id !== taskId))
-        toast.success('Task deleted successfully')
+      if (!window.confirm('Are you sure you want to delete this task?')) {
+        return
       }
+
+      // Call API to delete task
+      const response = await fetch(`/api/tasks/${taskId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to delete task')
+      }
+
+      // Update local state
+      setTasks(prev => prev.filter(t => t.id !== taskId))
+      toast.success('Task deleted successfully')
     } catch (error) {
       console.error('Error deleting task:', error)
-      toast.error('Failed to delete task')
+      toast.error(error instanceof Error ? error.message : 'Failed to delete task')
     }
   }
 
