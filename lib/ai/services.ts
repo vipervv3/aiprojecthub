@@ -185,46 +185,68 @@ export class AIService {
     summary: string
     confidence: number
   }> {
-    const prompt = `You are a task extraction AI. Analyze this meeting transcript and extract ALL actionable tasks/action items.
+    // Truncate text if too long (keep first 8000 chars to avoid token limits)
+    const truncatedText = text.length > 8000 ? text.substring(0, 8000) + '...' : text
+    
+    const prompt = `You are an expert task extraction AI. Analyze this meeting transcript and extract ALL actionable tasks, action items, to-dos, and commitments.
 
-IMPORTANT: 
-- Extract EVERY task, action item, or to-do mentioned
-- Each task MUST have a title and description
-- ALWAYS return at least the tasks array, even if empty
+CRITICAL INSTRUCTIONS:
+- Look for ANY mention of things to do, follow up on, or complete
+- Extract tasks even if they're mentioned casually (e.g., "we should...", "I'll...", "let's...")
+- Each task MUST have a clear title and description
+- If someone commits to doing something, that's a task
+- Look for deadlines, dates, and priorities mentioned
+- Extract at least 1-3 tasks if the meeting discussed any work or planning
 
-Text: "${text}"
+Examples of task indicators:
+- "I will..." / "We will..." / "Let's..."
+- "Need to..." / "Should..." / "Must..."
+- "Follow up on..." / "Review..." / "Check..."
+- "Complete by..." / "Finish..."
+- Any deadline or due date mentioned
+- Any action item mentioned explicitly
 
-${context ? `Context: ${context}` : ''}
+Meeting Transcript:
+${truncatedText}
 
-Return ONLY valid JSON in this exact format (no markdown, no code blocks):
+${context ? `Project Context: ${context}` : ''}
+
+Return ONLY valid JSON (no markdown, no code blocks, no explanations):
 {
   "tasks": [
     {
-      "title": "Clear task title",
-      "description": "What needs to be done and why",
-      "priority": "high",
+      "title": "Clear, specific task title (max 100 chars)",
+      "description": "Detailed description of what needs to be done, why, and any context",
+      "priority": "medium",
       "estimatedHours": 2,
-      "dueDate": "2025-11-10",
-      "assignee": "Person name if mentioned"
+      "dueDate": "2025-11-15",
+      "assignee": "Name if mentioned, otherwise null"
     }
   ],
-  "summary": "Brief 2-3 sentence summary of the meeting",
+  "summary": "2-3 sentence summary of the meeting's main points and outcomes",
   "confidence": 0.85
 }
 
-If no actionable tasks found, return empty array but still include summary.`
+IMPORTANT: If the transcript contains ANY discussion of work, planning, or follow-ups, extract at least 1 task. Only return empty array if truly nothing actionable was discussed.`
 
     let response = ''
     try {
-      response = await this.analyzeWithFallback(prompt)
-      console.log('🤖 Raw AI response:', response?.substring(0, 200))
+      console.log(`🔍 Extracting tasks from transcript (${text.length} chars)...`)
+      response = await this.analyzeWithFallback(prompt, context)
+      console.log('🤖 Raw AI response (first 500 chars):', response?.substring(0, 500))
       
       // Clean up response - remove markdown code blocks if present
       let cleanResponse = response.trim()
       if (cleanResponse.startsWith('```json')) {
-        cleanResponse = cleanResponse.replace(/```json\s*/g, '').replace(/```\s*$/g, '')
+        cleanResponse = cleanResponse.replace(/```json\s*/g, '').replace(/```\s*$/g, '').trim()
       } else if (cleanResponse.startsWith('```')) {
-        cleanResponse = cleanResponse.replace(/```\s*/g, '').replace(/```\s*$/g, '')
+        cleanResponse = cleanResponse.replace(/```\s*/g, '').replace(/```\s*$/g, '').trim()
+      }
+      
+      // Try to extract JSON if wrapped in other text
+      const jsonMatch = cleanResponse.match(/\{[\s\S]*\}/)
+      if (jsonMatch) {
+        cleanResponse = jsonMatch[0]
       }
       
       const parsed = JSON.parse(cleanResponse)
@@ -232,6 +254,7 @@ If no actionable tasks found, return empty array but still include summary.`
       // Validate response structure
       if (!parsed.tasks || !Array.isArray(parsed.tasks)) {
         console.error('❌ Invalid response structure - no tasks array')
+        console.error('   Parsed object:', JSON.stringify(parsed, null, 2))
         return {
           tasks: [],
           summary: parsed.summary || 'Task extraction returned invalid format',
@@ -239,15 +262,58 @@ If no actionable tasks found, return empty array but still include summary.`
         }
       }
       
-      console.log(`✅ Parsed ${parsed.tasks.length} tasks from AI response`)
-      return parsed
+      // Filter out invalid tasks
+      const validTasks = parsed.tasks.filter((task: any) => 
+        task && 
+        typeof task === 'object' && 
+        task.title && 
+        typeof task.title === 'string' && 
+        task.title.trim().length > 0
+      )
+      
+      if (validTasks.length === 0 && parsed.tasks.length > 0) {
+        console.warn('⚠️ All extracted tasks were invalid, using fallback')
+        // Try to create at least one task from the summary
+        if (parsed.summary && parsed.summary.trim().length > 0) {
+          validTasks.push({
+            title: 'Review meeting summary and follow up',
+            description: parsed.summary.substring(0, 200),
+            priority: 'medium',
+            estimatedHours: 1
+          })
+        }
+      }
+      
+      console.log(`✅ Extracted ${validTasks.length} valid tasks from ${parsed.tasks.length} total`)
+      if (validTasks.length > 0) {
+        console.log('   Task titles:', validTasks.map((t: any) => t.title).join(', '))
+      }
+      
+      return {
+        tasks: validTasks,
+        summary: parsed.summary || 'Meeting summary',
+        confidence: typeof parsed.confidence === 'number' ? parsed.confidence : 0.7
+      }
     } catch (error) {
       console.error('❌ Task extraction failed:', error)
+      console.error('   Error type:', error?.constructor?.name)
       console.error('   Response was:', response?.substring(0, 500))
+      
+      // Try to extract at least a summary task as fallback
+      let fallbackSummary = 'Task extraction failed. Please review the transcript manually.'
+      if (text && text.length > 50) {
+        fallbackSummary = `Review meeting transcript: ${text.substring(0, 150)}...`
+      }
+      
       return {
-        tasks: [],
-        summary: 'Task extraction failed due to parsing error',
-        confidence: 0
+        tasks: [{
+          title: 'Review meeting transcript and extract action items',
+          description: fallbackSummary,
+          priority: 'medium',
+          estimatedHours: 1
+        }],
+        summary: 'Please review the transcript to identify action items manually.',
+        confidence: 0.3
       }
     }
   }

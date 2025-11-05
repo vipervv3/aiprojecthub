@@ -66,9 +66,25 @@ export async function POST(request: NextRequest) {
     const transcriptionText = session.transcription_text
 
     // 2. Extract tasks and get summary
+    console.log(`📝 Transcription text length: ${transcriptionText.length} characters`)
+    console.log(`📝 First 200 chars: ${transcriptionText.substring(0, 200)}...`)
+    
     let taskExtraction
     try {
-      taskExtraction = await aiService.extractTasksFromText(transcriptionText)
+      // Get project context if available
+      let projectContext = null
+      if (projectId) {
+        const { data: project } = await supabase
+          .from('projects')
+          .select('name, description')
+          .eq('id', projectId)
+          .single()
+        if (project) {
+          projectContext = `Project: ${project.name}${project.description ? ` - ${project.description}` : ''}`
+        }
+      }
+      
+      taskExtraction = await aiService.extractTasksFromText(transcriptionText, projectContext || undefined)
       console.log(`📋 Extracted ${taskExtraction?.tasks?.length || 0} tasks`)
       
       // Validate task extraction result
@@ -81,9 +97,22 @@ export async function POST(request: NextRequest) {
         taskExtraction.tasks = []
       }
       
+      // If no tasks extracted, try to create at least one summary task
+      if (taskExtraction.tasks.length === 0 && taskExtraction.summary) {
+        console.warn('⚠️ No tasks extracted, creating summary task')
+        taskExtraction.tasks = [{
+          title: 'Review meeting summary and follow up',
+          description: taskExtraction.summary.substring(0, 200),
+          priority: 'medium' as const,
+          estimatedHours: 1
+        }]
+      }
+      
       if (!taskExtraction.summary) {
         console.warn('⚠️ Task extraction summary is missing, generating fallback')
-        taskExtraction.summary = 'Meeting summary will be generated shortly.'
+        taskExtraction.summary = transcriptionText.length > 200 
+          ? `${transcriptionText.substring(0, 200)}...`
+          : transcriptionText
       }
       
       if (typeof taskExtraction.confidence !== 'number') {
@@ -91,13 +120,23 @@ export async function POST(request: NextRequest) {
       }
     } catch (extractionError: any) {
       console.error('❌ Error extracting tasks:', extractionError)
-      // Use fallback empty extraction
+      console.error('   Error details:', extractionError?.message || extractionError)
+      // Use fallback with at least one task
       taskExtraction = {
-        tasks: [],
-        summary: 'Unable to extract tasks automatically. Please review the transcript manually.',
-        confidence: 0
+        tasks: [{
+          title: 'Review meeting transcript and extract action items',
+          description: transcriptionText.length > 200 
+            ? `Review the full transcript: ${transcriptionText.substring(0, 200)}...`
+            : `Review the transcript: ${transcriptionText}`,
+          priority: 'medium' as const,
+          estimatedHours: 1
+        }],
+        summary: transcriptionText.length > 300 
+          ? `${transcriptionText.substring(0, 300)}...`
+          : transcriptionText,
+        confidence: 0.3
       }
-      console.warn('⚠️ Using fallback task extraction')
+      console.warn('⚠️ Using fallback task extraction with summary task')
     }
 
     // 3. Generate meaningful meeting title using improved prompt
