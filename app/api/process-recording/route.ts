@@ -461,11 +461,23 @@ Generate ONLY the title (no quotes, no JSON, no explanation, no prefix like "Tit
     
     if (tasksToCreate.length > 0) {
 
+      // ✅ CRITICAL: Ensure project_id is set on ALL tasks before inserting
+      if (finalProjectId) {
+        tasksToCreate = tasksToCreate.map(task => ({
+          ...task,
+          project_id: finalProjectId // Force set project_id
+        }))
+        console.log(`✅ FORCED project_id=${finalProjectId} on all ${tasksToCreate.length} tasks`)
+      }
+      
       // ✅ CRITICAL: Log before inserting to verify project_id is set
       console.log(`📋 About to insert ${tasksToCreate.length} tasks`)
       console.log(`   Final projectId for tasks: ${finalProjectId || 'NULL - TASKS WILL NOT BE LINKED TO PROJECT!'}`)
       tasksToCreate.forEach((task, idx) => {
         console.log(`   Task ${idx + 1}: "${task.title}" → project_id: ${task.project_id || 'NULL'}`)
+        if (!task.project_id && finalProjectId) {
+          console.error(`   ❌ ERROR: Task ${idx + 1} has NULL project_id despite finalProjectId being set!`)
+        }
       })
       
       const { data: createdTasks, error: tasksError } = await supabase
@@ -605,10 +617,26 @@ Generate ONLY the title (no quotes, no JSON, no explanation, no prefix like "Tit
     console.log(`   Tasks Created: ${createdTasksCount}`)
     console.log(`   Tasks Linked: ${createdTasksCount > 0 ? 'YES' : 'NO'}`)
 
+    // Get actual task data to verify project_id
+    let actualTasks: any[] = []
+    if (createdTasksCount > 0) {
+      const { data: verifiedTasks } = await supabase
+        .from('tasks')
+        .select('id, title, project_id')
+        .in('id', createdTasks?.map((t: any) => t.id) || [])
+      
+      actualTasks = verifiedTasks || []
+      console.log(`🔍 Verified tasks after creation:`)
+      actualTasks.forEach((t: any) => {
+        console.log(`   Task "${t.title}" (${t.id}): project_id = ${t.project_id || 'NULL'}`)
+      })
+    }
+    
     return NextResponse.json({
       success: true,
       meeting,
       tasksCreated: createdTasksCount,
+      tasks: actualTasks, // Include task details in response
       projectId: finalProjectId || null,
       summary: taskExtraction.summary,
       confidence: taskExtraction.confidence,
