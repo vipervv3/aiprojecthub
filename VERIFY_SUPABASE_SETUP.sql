@@ -8,7 +8,7 @@
 DO $$
 BEGIN
   RAISE NOTICE '🔍 SUPABASE SETUP VERIFICATION';
-  RAISE NOTICE '=' || repeat('=', 60);
+  RAISE NOTICE '%', repeat('=', 61);
 END $$;
 
 -- ============================================================================
@@ -19,7 +19,7 @@ DO $$
 BEGIN
   RAISE NOTICE '';
   RAISE NOTICE '📊 1. DATABASE TABLES';
-  RAISE NOTICE '-' || repeat('-', 60);
+  RAISE NOTICE '%', repeat('-', 61);
 END $$;
 
 DO $$
@@ -55,7 +55,7 @@ DO $$
 BEGIN
   RAISE NOTICE '';
   RAISE NOTICE '📦 2. STORAGE BUCKET';
-  RAISE NOTICE '-' || repeat('-', 60);
+  RAISE NOTICE '%', repeat('-', 61);
 END $$;
 
 DO $$
@@ -113,7 +113,7 @@ DO $$
 BEGIN
   RAISE NOTICE '';
   RAISE NOTICE '🎙️  3. RECORDING SESSIONS';
-  RAISE NOTICE '-' || repeat('-', 60);
+  RAISE NOTICE '%', repeat('-', 61);
 END $$;
 
 DO $$
@@ -157,7 +157,7 @@ DO $$
 BEGIN
   RAISE NOTICE '';
   RAISE NOTICE '📅 4. MEETINGS';
-  RAISE NOTICE '-' || repeat('-', 60);
+  RAISE NOTICE '%', repeat('-', 61);
 END $$;
 
 DO $$
@@ -188,7 +188,7 @@ DO $$
 BEGIN
   RAISE NOTICE '';
   RAISE NOTICE '🔍 5. ORPHANED RECORDINGS';
-  RAISE NOTICE '-' || repeat('-', 60);
+  RAISE NOTICE '%', repeat('-', 61);
 END $$;
 
 DO $$
@@ -220,7 +220,7 @@ DO $$
 BEGIN
   RAISE NOTICE '';
   RAISE NOTICE '🔐 6. STORAGE BUCKET PERMISSIONS';
-  RAISE NOTICE '-' || repeat('-', 60);
+  RAISE NOTICE '%', repeat('-', 61);
 END $$;
 
 DO $$
@@ -275,7 +275,7 @@ DO $$
 BEGIN
   RAISE NOTICE '';
   RAISE NOTICE '📋 7. RECORDING SESSIONS SCHEMA';
-  RAISE NOTICE '-' || repeat('-', 60);
+  RAISE NOTICE '%', repeat('-', 61);
 END $$;
 
 DO $$
@@ -326,9 +326,9 @@ END $$;
 DO $$
 BEGIN
   RAISE NOTICE '';
-  RAISE NOTICE '=' || repeat('=', 60);
+  RAISE NOTICE '%', repeat('=', 61);
   RAISE NOTICE '✅ VERIFICATION COMPLETE';
-  RAISE NOTICE '=' || repeat('=', 60);
+  RAISE NOTICE '%', repeat('=', 61);
   RAISE NOTICE '';
   RAISE NOTICE '📋 Summary:';
   RAISE NOTICE '   - Check results above for any ❌ errors';
