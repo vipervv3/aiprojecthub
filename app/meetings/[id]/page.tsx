@@ -347,7 +347,7 @@ export default function MeetingDetailPage() {
         }
       }
 
-      // ✅ Load tasks from meeting_tasks junction table
+      // ✅ Load tasks ONLY from meeting_tasks junction table (single source of truth)
       let validTasks: Task[] = []
       if (!taskError && taskData && taskData.length > 0) {
         // Filter out any null tasks and ensure we have valid task objects
@@ -356,51 +356,26 @@ export default function MeetingDetailPage() {
           .filter((task: any) => task && task.id) // Ensure task exists and has ID
         
         console.log('✅ Valid tasks extracted from meeting_tasks:', validTasks.length)
-      }
-      
-      // ✅ ALSO convert action_items to tasks if no tasks found in junction table
-      if (validTasks.length === 0 && meetingData && meetingData.action_items && Array.isArray(meetingData.action_items) && meetingData.action_items.length > 0) {
-        console.log('⚠️ No tasks in meeting_tasks, converting action_items to tasks for display')
-        validTasks = meetingData.action_items.map((item: any, index: number) => {
-          let title = 'Untitled task'
-          let description = ''
-          let priority = 'medium'
-          
-          if (typeof item === 'string') {
-            title = item
-            description = `Action item from meeting: ${meetingData.title || 'Meeting'}`
-          } else if (item && typeof item === 'object') {
-            // ✅ FIX: Ensure all values are strings, not objects
-            title = String(item.title || item.description || item.name || 'Untitled task')
-            
-            // ✅ FIX: Handle description - if it's an object, convert to string
-            if (typeof item.description === 'string') {
-              description = item.description
-            } else if (item.description && typeof item.description === 'object') {
-              description = JSON.stringify(item.description)
-            } else {
-              description = `Action item from meeting: ${meetingData.title || 'Meeting'}`
-            }
-            
-            // ✅ FIX: Ensure priority is a string
-            if (typeof item.priority === 'string') {
-              priority = item.priority
-            } else {
-              priority = 'medium'
-            }
-          }
-          
-          // ✅ FIX: Ensure all fields are strings (React can't render objects)
-          return {
-            id: `action-item-${index}`,
-            title: String(title || 'Untitled task'),
-            description: String(description || ''),
-            priority: String(priority || 'medium'),
-            status: 'todo',
-            is_ai_generated: true
-          } as Task
-        })
-        console.log('✅ Converted action_items to tasks:', validTasks.length)
+        
+        // ✅ Log task details for debugging
+        if (validTasks.length > 0) {
+          console.log('   Task titles:', validTasks.map((t: any) => t.title).join(', '))
+          console.log('   Task IDs:', validTasks.map((t: any) => t.id).join(', '))
+          console.log('   Task project IDs:', validTasks.map((t: any) => t.project_id || 'NONE').join(', '))
+        }
+      } else {
+        console.warn('⚠️ No tasks found in meeting_tasks junction table')
+        console.warn('   Meeting ID:', actualMeetingId)
+        console.warn('   Task error:', taskError?.message || 'none')
+        console.warn('   Task data count:', taskData?.length || 0)
+        
+        // ✅ REMOVED: No longer converting action_items as fallback
+        // This ensures only real extracted tasks (from meeting_tasks) are shown
+        // If action_items exist but no tasks are in meeting_tasks, it means tasks weren't properly linked
+        if (meetingData && meetingData.action_items && Array.isArray(meetingData.action_items) && meetingData.action_items.length > 0) {
+          console.warn(`   ⚠️  Found ${meetingData.action_items.length} action_items in meeting record, but no tasks in junction table`)
+          console.warn(`   ⚠️  This suggests tasks were extracted but not properly linked to the meeting`)
+        }
       }
       
       setTasks(validTasks)
