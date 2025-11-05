@@ -70,12 +70,50 @@ export async function POST(request: NextRequest) {
     
     console.log(`📋 Extracted ${taskExtraction.tasks.length} tasks`)
 
-    // 3. Generate meaningful meeting title
-    const titlePrompt = `Generate a concise, professional meeting title (max 60 chars) for this transcription:\n\n${transcriptionText.substring(0, 500)}...`
-    const generatedTitle = await aiService.analyzeWithFallback(titlePrompt)
-    const meetingTitle = generatedTitle.replace(/['"]/g, '').trim().substring(0, 60) || session.title
+    // 3. Generate meaningful meeting title using improved prompt
+    let meetingTitle = session.title || `Recording - ${new Date(session.created_at).toLocaleDateString()}`
+    
+    try {
+      // Use a better prompt for title generation
+      const titlePrompt = `You are a meeting title generator. Analyze this meeting transcript and generate a concise, professional title (max 60 characters).
 
-    console.log(`📝 Generated title: "${meetingTitle}"`)
+The title should:
+- Capture the main topic or purpose
+- Be specific and descriptive
+- Use professional language
+- Be 60 characters or less
+
+Examples of good titles:
+- "Q4 Product Roadmap Planning"
+- "Bug Fix Discussion - Login Issue"
+- "Sprint Planning - Week 42"
+- "Customer Feedback Review Session"
+
+Meeting Transcript:
+${transcriptionText.substring(0, 1000)}
+
+Generate ONLY the title text (no quotes, no JSON, no explanation, just the title):`
+
+      const generatedTitle = await aiService.analyzeWithFallback(titlePrompt)
+      
+      // Clean up the response
+      let cleanedTitle = generatedTitle
+        .replace(/^["']|["']$/g, '') // Remove quotes
+        .replace(/^Title:\s*/i, '') // Remove "Title:" prefix if present
+        .replace(/\n.*/g, '') // Remove any newlines and everything after
+        .trim()
+        .substring(0, 60) // Ensure max 60 chars
+      
+      if (cleanedTitle && cleanedTitle.length > 5 && cleanedTitle !== 'Meeting Recording') {
+        meetingTitle = cleanedTitle
+        console.log(`📝 Generated intelligent title: "${meetingTitle}"`)
+      } else {
+        console.warn(`⚠️ Title generation returned invalid result, using default: "${generatedTitle}"`)
+      }
+    } catch (titleError) {
+      console.error('❌ Error generating title:', titleError)
+      // Keep the default title
+    }
 
     // 4. Create meeting record
     const meetingData = {

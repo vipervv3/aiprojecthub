@@ -153,47 +153,70 @@ export default function MeetingDetailPage() {
           .maybeSingle()
         
         if (recordingSession && !sessionError) {
-          console.log('✅ Found as recording session - attempting to process it')
+          console.log('✅ Found as recording session')
           
-          // Check if it has transcription and can be processed
-          if (recordingSession.transcription_status === 'completed' && recordingSession.transcription_text) {
+          // Show the recording session even if it's still being processed
+          // Create a temporary meeting object for display
+          const tempMeeting: Meeting = {
+            id: `recording-${recordingSessionId}`,
+            title: recordingSession.title || `Recording - ${new Date(recordingSession.created_at).toLocaleDateString()}`,
+            description: recordingSession.transcription_status === 'completed' 
+              ? 'Ready for processing' 
+              : recordingSession.transcription_status === 'processing'
+              ? 'Transcribing...'
+              : 'Pending transcription',
+            scheduled_at: recordingSession.created_at,
+            duration: recordingSession.duration || 0,
+            summary: recordingSession.transcription_text || undefined,
+            action_items: [],
+            ai_insights: {
+              transcription_status: recordingSession.transcription_status,
+              transcription_confidence: recordingSession.transcription_confidence
+            },
+            created_at: recordingSession.created_at
+          }
+          
+          setMeeting(tempMeeting)
+          setRecording({
+            id: recordingSession.id,
+            transcription_text: recordingSession.transcription_text,
+            transcription_confidence: recordingSession.transcription_confidence,
+            transcription_status: recordingSession.transcription_status
+          })
+          setLoading(false)
+          
+          // If transcription is complete but not processed, try to process it
+          if (recordingSession.transcription_status === 'completed' && recordingSession.transcription_text && !recordingSession.ai_processed) {
             // Get current user
             const { data: { user: currentUser } } = await supabase.auth.getUser()
             const projectId = recordingSession.metadata?.projectId || null
             
-            // Try to process it
-            try {
-              const response = await fetch('/api/process-recording', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  sessionId: recordingSessionId,
-                  userId: currentUser?.id,
-                  projectId: projectId
-                })
+            // Try to process it in background
+            fetch('/api/process-recording', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                sessionId: recordingSessionId,
+                userId: currentUser?.id,
+                projectId: projectId
               })
-              
+            })
+            .then(response => {
               if (response.ok) {
                 toast.success('Recording processed! Reloading...')
-                // Reload after a short delay
                 setTimeout(() => {
                   window.location.reload()
                 }, 2000)
-                return
               } else {
-                const errorData = await response.json()
-                throw new Error(errorData.error || 'Processing failed')
+                console.error('Processing failed:', response.status)
               }
-            } catch (processError: any) {
-              console.error('Error processing recording:', processError)
-              throw new Error(`Failed to process recording: ${processError.message}`)
-            }
-          } else {
-            // Recording exists but no transcription yet
-            toast.error('This recording does not have a completed transcription yet. Please wait for transcription to complete.')
-            router.push('/meetings')
-            return
+            })
+            .catch(error => {
+              console.error('Error processing recording:', error)
+            })
           }
+          
+          return
         } else {
           // Not a recording session either - truly not found
           console.error('❌ Meeting not found:', meetingId)
