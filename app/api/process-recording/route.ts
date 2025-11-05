@@ -134,14 +134,9 @@ export async function POST(request: NextRequest) {
             priority: 'medium' as const,
             estimatedHours: 1
           }))
-        } else if (taskExtraction.summary) {
-          console.warn('⚠️ No action patterns found, creating summary task')
-          taskExtraction.tasks = [{
-            title: 'Review meeting summary and follow up',
-            description: taskExtraction.summary.substring(0, 200),
-            priority: 'medium' as const,
-            estimatedHours: 1
-          }]
+        } else {
+          console.warn('⚠️ No action patterns found, no tasks will be created')
+          taskExtraction.tasks = []
         }
       }
       
@@ -158,22 +153,15 @@ export async function POST(request: NextRequest) {
     } catch (extractionError: any) {
       console.error('❌ Error extracting tasks:', extractionError)
       console.error('   Error details:', extractionError?.message || extractionError)
-      // Use fallback with at least one task
+      // No fallback tasks - only create tasks if AI successfully extracts them
       taskExtraction = {
-        tasks: [{
-          title: 'Review meeting transcript and extract action items',
-          description: transcriptionText.length > 200 
-            ? `Review the full transcript: ${transcriptionText.substring(0, 200)}...`
-            : `Review the transcript: ${transcriptionText}`,
-          priority: 'medium' as const,
-          estimatedHours: 1
-        }],
+        tasks: [],
         summary: transcriptionText.length > 300 
           ? `${transcriptionText.substring(0, 300)}...`
           : transcriptionText,
-        confidence: 0.3
+        confidence: 0.0
       }
-      console.warn('⚠️ Using fallback task extraction with summary task')
+      console.warn('⚠️ Task extraction failed - no tasks will be created')
     }
 
     // 3. Generate meaningful meeting title using improved prompt
@@ -538,48 +526,10 @@ Generate ONLY a very short title (3-8 words, no quotes, no JSON, no explanation)
       if (!finalProjectId) {
         console.warn(`   ⚠️  WARNING: Tasks will be created without project association!`)
       }
-    } else if (meeting.action_items && Array.isArray(meeting.action_items) && meeting.action_items.length > 0) {
-      // Fallback: Create tasks from action items if task extraction failed
-      console.log(`⚠️  Task extraction returned 0, using action items as fallback`)
-      tasksToCreate = meeting.action_items.map((item: any) => ({
-        title: typeof item === 'string' ? item : (item.title || item.description || 'Untitled task'),
-        description: typeof item === 'string' ? `From meeting: ${meeting.title}` : (item.description || `From meeting: ${meeting.title}`),
-        project_id: finalProjectId || null, // ✅ CRITICAL: Associate with selected project
-        assignee_id: null,
-        status: 'todo' as const,
-        priority: (typeof item === 'object' && item.priority) ? item.priority : 'medium' as const,
-        is_ai_generated: true,
-        ai_priority_score: taskExtraction.confidence || 0.5,
-        due_date: null,
-        estimated_hours: null,
-        tags: ['meeting-generated', `meeting:${meeting.id}`],
-      }))
-      console.log(`📋 Creating ${tasksToCreate.length} tasks from action items`)
-      console.log(`   ✅ Project ID for tasks: ${finalProjectId || 'NONE (will not be linked to project!)'}`)
-      if (!finalProjectId) {
-        console.warn(`   ⚠️  WARNING: Tasks will be created without project association!`)
-      }
     } else {
-      // Final fallback: Create at least one review task
-      console.warn(`⚠️  No tasks or action items found, creating fallback review task`)
-      tasksToCreate = [{
-        title: 'Review meeting transcript and extract action items',
-        description: `Review the meeting transcript and identify any action items or tasks that need to be completed. Meeting: ${meeting.title}`,
-        project_id: finalProjectId || null, // ✅ CRITICAL: Associate with selected project
-        assignee_id: userId,
-        status: 'todo' as const,
-        priority: 'medium' as const,
-        is_ai_generated: true,
-        ai_priority_score: 0.3,
-        due_date: null,
-        estimated_hours: 1,
-        tags: ['meeting-generated', `meeting:${meeting.id}`, 'manual-review'],
-      }]
-      console.log(`📋 Creating 1 fallback review task`)
-      console.log(`   ✅ Project ID for task: ${finalProjectId || 'NONE (will not be linked to project!)'}`)
-      if (!finalProjectId) {
-        console.warn(`   ⚠️  WARNING: Task will be created without project association!`)
-      }
+      // No tasks extracted - do not create any mock/fallback tasks
+      console.log(`ℹ️  No tasks extracted from recording - meeting will be created without tasks`)
+      tasksToCreate = []
     }
     
     if (tasksToCreate.length > 0) {
