@@ -421,9 +421,26 @@ export default function MeetingDetailPage() {
       setDeleting(true)
       console.log('🗑️ Deleting meeting:', meetingId)
 
-      // Call API route to delete (uses service role key)
+      // Get auth token for API request
+      if (!supabase) {
+        toast.error('Database connection not available')
+        return
+      }
+
+      const { data: { session } } = await supabase.auth.getSession()
+      
+      if (!session) {
+        toast.error('You must be logged in to delete meetings')
+        return
+      }
+
+      // Call API route to delete with authentication
       const response = await fetch(`/api/meetings/${meetingId}`, {
         method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
       })
 
       const data = await response.json()
