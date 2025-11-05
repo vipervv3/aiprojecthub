@@ -264,19 +264,56 @@ export default function TasksPage() {
     }
 
     try {
-      // Delete tasks
-      const deletePromises = tasksToDelete.map(taskId =>
-        fetch(`/api/tasks/${taskId}`, { method: 'DELETE' })
-      )
+      // ✅ Get auth token for API requests (required for authentication)
+      if (!supabase) {
+        toast.error('Database connection not available')
+        return
+      }
 
-      await Promise.all(deletePromises)
+      const { data: { session } } = await supabase.auth.getSession()
+      
+      if (!session) {
+        toast.error('You must be logged in to delete tasks')
+        return
+      }
 
-      toast.success(`Successfully deleted ${count} task(s)!`)
+      // ✅ Delete tasks with proper authentication
+      const deletePromises = tasksToDelete.map(async (taskId) => {
+        const response = await fetch(`/api/tasks/${taskId}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+        })
+
+        const data = await response.json()
+
+        if (!response.ok) {
+          throw new Error(data.error || `Failed to delete task ${taskId}`)
+        }
+
+        return { success: true, taskId }
+      })
+
+      // ✅ Wait for all deletions and check results
+      const results = await Promise.allSettled(deletePromises)
+      
+      const successful = results.filter(r => r.status === 'fulfilled').length
+      const failed = results.filter(r => r.status === 'rejected').length
+
+      if (failed > 0) {
+        console.error('Some tasks failed to delete:', results.filter(r => r.status === 'rejected'))
+        toast.error(`Deleted ${successful} of ${count} task(s). ${failed} failed.`)
+      } else {
+        toast.success(`Successfully deleted ${count} task(s)!`)
+      }
+
       setSelectedTasks([])
       loadTasks()
     } catch (error) {
       console.error('Error deleting tasks:', error)
-      toast.error('Failed to delete tasks')
+      toast.error(error instanceof Error ? error.message : 'Failed to delete tasks')
       loadTasks()
     }
   }

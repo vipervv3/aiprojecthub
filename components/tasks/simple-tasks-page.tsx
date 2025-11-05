@@ -920,21 +920,46 @@ export default function SimpleTasksPage() {
     try {
       const userId = user?.id || 'demo-user'
       
-      // Delete selected tasks
-      const deletePromises = selectedTasks.map(taskId => dataService.deleteTask(userId, taskId))
-      await Promise.all(deletePromises)
+      if (!userId || userId === 'demo-user') {
+        alert('You must be logged in to delete tasks')
+        return
+      }
       
-      // Remove from local state
-      setTasks(tasks.filter(t => !selectedTasks.includes(t.id)))
+      // ✅ Delete selected tasks with proper error handling
+      const deletePromises = selectedTasks.map(async (taskId) => {
+        try {
+          await dataService.deleteTask(userId, taskId)
+          return { success: true, taskId }
+        } catch (error) {
+          console.error(`Failed to delete task ${taskId}:`, error)
+          throw error
+        }
+      })
+      
+      // ✅ Use Promise.allSettled to handle partial failures
+      const results = await Promise.allSettled(deletePromises)
+      
+      const successful = results.filter(r => r.status === 'fulfilled').length
+      const failed = results.filter(r => r.status === 'rejected').length
+      
+      // Remove successfully deleted tasks from local state
+      const successfulTaskIds = results
+        .filter(r => r.status === 'fulfilled')
+        .map(r => (r as PromiseFulfilledResult<any>).value.taskId)
+      
+      setTasks(tasks.filter(t => !successfulTaskIds.includes(t.id)))
       
       // Clear selection
       setSelectedTasks([])
       
-      console.log('Selected tasks deleted successfully')
-      alert(`Successfully deleted ${deletePromises.length} task(s)`)
+      if (failed > 0) {
+        alert(`Deleted ${successful} of ${selectedTasks.length} task(s). ${failed} failed.`)
+      } else {
+        alert(`Successfully deleted ${successful} task(s)!`)
+      }
     } catch (error) {
       console.error('Error deleting selected tasks:', error)
-      alert('Failed to delete some tasks. Please try again.')
+      alert('Failed to delete tasks. Please try again.')
     }
   }
 

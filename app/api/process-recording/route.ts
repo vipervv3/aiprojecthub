@@ -506,6 +506,14 @@ Generate ONLY a very short title (3-8 words, no quotes, no JSON, no explanation)
           }
         }
         
+        // ✅ Automatically set due date to 7 days from now if not provided
+        if (!dueDateISO) {
+          const dueDate = new Date()
+          dueDate.setDate(dueDate.getDate() + 7) // Add 7 days
+          dueDateISO = dueDate.toISOString()
+          console.log(`📅 Auto-assigned due date (7 days) for task "${task.title}": ${dueDateISO}`)
+        }
+        
         return {
           title: task.title || 'Untitled task',
           description: task.description || 'No description',

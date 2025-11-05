@@ -42,6 +42,15 @@ export async function POST(request: NextRequest) {
     const createdTasks = []
     for (const extractedTask of analysis.tasks) {
       try {
+        // ✅ Automatically set due date to 7 days from now if not provided
+        let dueDate = extractedTask.due_date
+        if (!dueDate) {
+          const dueDateObj = new Date()
+          dueDateObj.setDate(dueDateObj.getDate() + 7) // Add 7 days
+          dueDate = dueDateObj.toISOString()
+          console.log(`📅 Auto-assigned due date (7 days) for task "${extractedTask.title}": ${dueDate}`)
+        }
+        
         const taskData = {
           title: extractedTask.title,
           description: extractedTask.description,
@@ -49,7 +58,7 @@ export async function POST(request: NextRequest) {
           status: 'todo' as const,
           priority: extractedTask.priority,
           estimated_hours: extractedTask.estimated_hours,
-          due_date: extractedTask.due_date,
+          due_date: dueDate,
           is_ai_generated: true,
           ai_priority_score: 0.8, // High confidence for explicitly mentioned tasks
         }
