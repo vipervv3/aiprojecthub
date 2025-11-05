@@ -347,18 +347,47 @@ export default function MeetingDetailPage() {
         }
       }
 
+      // ✅ Load tasks from meeting_tasks junction table
+      let validTasks: Task[] = []
       if (!taskError && taskData && taskData.length > 0) {
         // Filter out any null tasks and ensure we have valid task objects
-        const validTasks = taskData
+        validTasks = taskData
           .map((mt: any) => mt.tasks)
           .filter((task: any) => task && task.id) // Ensure task exists and has ID
         
-        console.log('✅ Valid tasks extracted:', validTasks.length)
-        setTasks(validTasks)
-      } else {
-        console.log('⚠️ No tasks found or error occurred')
-        setTasks([])
+        console.log('✅ Valid tasks extracted from meeting_tasks:', validTasks.length)
       }
+      
+      // ✅ ALSO convert action_items to tasks if no tasks found in junction table
+      if (validTasks.length === 0 && meetingData && meetingData.action_items && Array.isArray(meetingData.action_items) && meetingData.action_items.length > 0) {
+        console.log('⚠️ No tasks in meeting_tasks, converting action_items to tasks for display')
+        validTasks = meetingData.action_items.map((item: any, index: number) => {
+          let title = 'Untitled task'
+          let description = ''
+          let priority = 'medium'
+          
+          if (typeof item === 'string') {
+            title = item
+            description = `Action item from meeting: ${meetingData.title}`
+          } else if (item && typeof item === 'object') {
+            title = String(item.title || item.description || item.name || 'Untitled task')
+            description = typeof item.description === 'string' ? item.description : `Action item from meeting: ${meetingData.title}`
+            priority = (item.priority && typeof item.priority === 'string') ? item.priority : 'medium'
+          }
+          
+          return {
+            id: `action-item-${index}`,
+            title,
+            description,
+            priority,
+            status: 'todo',
+            is_ai_generated: true
+          } as Task
+        })
+        console.log('✅ Converted action_items to tasks:', validTasks.length)
+      }
+      
+      setTasks(validTasks)
     } catch (error) {
       console.error('Error loading meeting data:', error)
       toast.error('Failed to load meeting details')
@@ -610,61 +639,8 @@ export default function MeetingDetailPage() {
               </div>
             )}
 
-            {/* Action Items */}
-            {meeting.action_items && Array.isArray(meeting.action_items) && meeting.action_items.length > 0 && (
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 sm:p-6">
-                <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
-                  <CheckSquare className="h-5 w-5 text-green-600 dark:text-green-400" />
-                  Action Items ({meeting.action_items.length})
-                </h2>
-                <ul className="space-y-3">
-                  {meeting.action_items.map((item: any, index: number) => {
-                    // Safely extract values - handle all possible formats
-                    let title = 'Untitled action item'
-                    let description: string | null = null
-                    let priority: string | null = null
-                    let completed = false
-                    
-                    if (typeof item === 'string') {
-                      title = item
-                    } else if (item && typeof item === 'object') {
-                      title = String(item.title || item.description || item.name || 'Untitled action item')
-                      description = item.description && typeof item.description === 'string' ? item.description : null
-                      priority = item.priority && typeof item.priority === 'string' ? item.priority : null
-                      completed = Boolean(item.completed)
-                    }
-                    
-                    // Ensure title is always a string (never render object)
-                    if (typeof title !== 'string') {
-                      title = String(title || 'Untitled action item')
-                    }
-                    
-                    return (
-                      <li key={index} className={`flex items-start gap-3 p-3 rounded-lg ${completed ? 'bg-gray-50 dark:bg-gray-700/50 opacity-75' : 'bg-green-50 dark:bg-green-900/20'}`}>
-                        <CheckSquare className={`h-5 w-5 mt-0.5 flex-shrink-0 ${completed ? 'text-green-600 dark:text-green-400' : 'text-gray-400 dark:text-gray-500'}`} />
-                        <div className="flex-1">
-                          <div className="flex items-start justify-between gap-2">
-                            <p className={`text-sm sm:text-base font-medium ${completed ? 'line-through text-gray-500 dark:text-gray-400' : 'text-gray-900 dark:text-gray-100'}`}>
-                              {title}
-                            </p>
-                            {priority && typeof priority === 'string' && (
-                              <span className={`px-2 py-1 rounded-full text-xs font-medium flex-shrink-0 ${getPriorityColor(priority)}`}>
-                                {priority}
-                              </span>
-                            )}
-                          </div>
-                          {description && typeof description === 'string' && (
-                            <p className={`text-sm text-gray-600 dark:text-gray-400 mt-1 ${completed ? 'line-through' : ''}`}>
-                              {description}
-                            </p>
-                          )}
-                        </div>
-                      </li>
-                    )
-                  })}
-                </ul>
-              </div>
-            )}
+            {/* Action Items - Moved to Tasks Tab */}
+            {/* Action items are now displayed in the Tasks tab instead */}
           </div>
         )}
 
