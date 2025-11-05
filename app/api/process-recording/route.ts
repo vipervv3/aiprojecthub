@@ -360,12 +360,15 @@ Generate ONLY the title (no quotes, no JSON, no explanation, no prefix like "Tit
         console.error('   Error code:', tasksError.code)
         console.error('   Error message:', tasksError.message)
         console.error('   Error details:', tasksError.details)
+        console.error('   Error hint:', tasksError.hint)
+        console.error('   Tasks to create:', JSON.stringify(tasksToCreate, null, 2))
       } else {
         createdTasksCount = createdTasks?.length || 0
         console.log(`✅ Created ${createdTasksCount} tasks`)
         
         if (createdTasks && createdTasks.length > 0) {
           console.log(`   Task IDs:`, createdTasks.map((t: any) => t.id).join(', '))
+          console.log(`   Task project IDs:`, createdTasks.map((t: any) => t.project_id || 'NONE').join(', '))
           
           // ✅ Link tasks to meeting via meeting_tasks table
           const meetingTaskLinks = createdTasks.map((task: any) => ({
@@ -374,6 +377,7 @@ Generate ONLY the title (no quotes, no JSON, no explanation, no prefix like "Tit
           }))
           
           console.log(`📎 Linking ${meetingTaskLinks.length} tasks to meeting ${meeting.id}...`)
+          console.log(`   Meeting ID: ${meeting.id}`)
           console.log(`   Links:`, JSON.stringify(meetingTaskLinks, null, 2))
           
           const { data: insertedLinks, error: linkError } = await supabase
@@ -387,10 +391,41 @@ Generate ONLY the title (no quotes, no JSON, no explanation, no prefix like "Tit
             console.error('   Error message:', linkError.message)
             console.error('   Error details:', linkError.details)
             console.error('   Error hint:', linkError.hint)
+            console.error('   Meeting ID used:', meeting.id)
+            console.error('   Task IDs to link:', meetingTaskLinks.map((l: any) => l.task_id).join(', '))
+            
+            // Try to verify the meeting exists
+            const { data: meetingCheck, error: meetingCheckError } = await supabase
+              .from('meetings')
+              .select('id')
+              .eq('id', meeting.id)
+              .single()
+            
+            if (meetingCheckError) {
+              console.error('   ❌ Meeting verification failed:', meetingCheckError)
+            } else {
+              console.log('   ✅ Meeting exists:', meetingCheck?.id)
+            }
+            
+            // Try to verify tasks exist
+            const taskIds = meetingTaskLinks.map((l: any) => l.task_id)
+            const { data: tasksCheck, error: tasksCheckError } = await supabase
+              .from('tasks')
+              .select('id, project_id')
+              .in('id', taskIds)
+            
+            if (tasksCheckError) {
+              console.error('   ❌ Tasks verification failed:', tasksCheckError)
+            } else {
+              console.log(`   ✅ Verified ${tasksCheck?.length || 0} tasks exist`)
+              console.log(`   Tasks with project IDs:`, tasksCheck?.map((t: any) => `${t.id} -> ${t.project_id || 'NONE'}`).join(', '))
+            }
           } else {
             console.log(`✅ Successfully linked ${insertedLinks?.length || 0} tasks to meeting ${meeting.id}`)
-            if (insertedLinks) {
+            if (insertedLinks && insertedLinks.length > 0) {
               console.log(`   Linked task IDs:`, insertedLinks.map((l: any) => l.task_id).join(', '))
+            } else {
+              console.warn(`   ⚠️  No links returned from insert (may indicate RLS blocking)`)
             }
           }
         } else {
