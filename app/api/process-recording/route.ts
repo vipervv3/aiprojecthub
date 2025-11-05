@@ -177,7 +177,27 @@ export async function POST(request: NextRequest) {
     }
 
     // 3. Generate meaningful meeting title using improved prompt
+    // Start with a default, but try to extract something meaningful from transcript first
     let meetingTitle = session.title || `Recording - ${new Date(session.created_at).toLocaleDateString()}`
+    
+    // Quick fallback: Extract first meaningful sentence from transcript as title
+    const extractFallbackTitle = (text: string): string | null => {
+      if (!text || text.length < 20) return null
+      
+      // Try to find first sentence that's not too short
+      const sentences = text.split(/[.!?]\s+/).filter(s => s.length > 15 && s.length < 80)
+      if (sentences.length > 0) {
+        let title = sentences[0].trim()
+        // Remove common prefixes
+        title = title.replace(/^(so|well|okay|alright|yes|no|ok|um|uh|like|you know),?\s*/i, '')
+        // Capitalize first letter
+        title = title.charAt(0).toUpperCase() + title.slice(1)
+        // Limit length
+        if (title.length > 60) title = title.substring(0, 57) + '...'
+        return title
+      }
+      return null
+    }
     
     try {
       console.log(`🎯 Generating intelligent title from transcript...`)
@@ -274,8 +294,15 @@ Generate ONLY the title (no quotes, no JSON, no explanation, no prefix like "Tit
           console.warn(`⚠️ Title too short (${cleanedTitle.length} chars), using default. Raw: "${generatedTitle}"`)
         }
       } else {
-        console.warn(`⚠️ Title empty or invalid, using default. Raw: "${generatedTitle}"`)
+        console.warn(`⚠️ Title empty or invalid, using fallback. Raw: "${generatedTitle}"`)
         console.warn(`   Cleaned title was: "${cleanedTitle}"`)
+        
+        // Try fallback extraction from transcript
+        const fallbackTitle = extractFallbackTitle(transcriptionText)
+        if (fallbackTitle && fallbackTitle.length >= 10) {
+          meetingTitle = fallbackTitle
+          console.log(`✅ Using fallback title from transcript: "${meetingTitle}"`)
+        }
       }
     } catch (titleError: any) {
       console.error('❌ Error generating title:', titleError)
@@ -291,8 +318,14 @@ Generate ONLY the title (no quotes, no JSON, no explanation, no prefix like "Tit
         console.error('   - Redeploy after adding the variable')
       }
       
-      // Keep the default title
-      console.warn(`   Using default title: "${meetingTitle}"`)
+      // Try fallback extraction from transcript
+      const fallbackTitle = extractFallbackTitle(transcriptionText)
+      if (fallbackTitle && fallbackTitle.length >= 10) {
+        meetingTitle = fallbackTitle
+        console.log(`✅ Using fallback title from transcript: "${meetingTitle}"`)
+      } else {
+        console.warn(`   Using default title: "${meetingTitle}"`)
+      }
     }
 
     // 4. Create meeting record
