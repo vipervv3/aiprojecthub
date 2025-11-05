@@ -123,14 +123,27 @@ const ViewMeetingModal: React.FC<ViewMeetingModalProps> = ({ meeting, onClose, o
             <div>
               <h3 className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">Agenda</h3>
               <ol className="space-y-2">
-                {meeting.agenda.map((item, index) => (
-                  <li key={index} className="flex items-start gap-2 sm:gap-3">
-                    <span className="bg-blue-600 dark:bg-blue-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center mt-0.5 flex-shrink-0">
-                      {index + 1}
-                    </span>
-                    <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">{item}</span>
-                  </li>
-                ))}
+                {meeting.agenda.map((item, index) => {
+                  // ✅ FIX: Handle both string and object formats for action items
+                  let itemText = ''
+                  if (typeof item === 'string') {
+                    itemText = item
+                  } else if (item && typeof item === 'object') {
+                    // If it's an object (action item), extract the title or description
+                    itemText = item.title || item.description || item.task || 'Action item'
+                  } else {
+                    itemText = String(item || 'Item')
+                  }
+                  
+                  return (
+                    <li key={index} className="flex items-start gap-2 sm:gap-3">
+                      <span className="bg-blue-600 dark:bg-blue-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center mt-0.5 flex-shrink-0">
+                        {index + 1}
+                      </span>
+                      <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">{itemText}</span>
+                    </li>
+                  )
+                })}
               </ol>
             </div>
           )}
@@ -413,7 +426,12 @@ export default function EnhancedMeetingsPage() {
               status: meetingStatus,
               attendees: Array.isArray(associatedMeeting?.attendees) ? associatedMeeting.attendees : [],
               project_id: associatedMeeting?.project_id || session.metadata?.projectId,
-              agenda: Array.isArray(associatedMeeting?.action_items) ? associatedMeeting.action_items : [],
+              // ✅ Convert action_items to strings for agenda display (handle both string and object formats)
+              agenda: Array.isArray(associatedMeeting?.action_items) 
+                ? associatedMeeting.action_items.map((item: any) => 
+                    typeof item === 'string' ? item : (item?.title || item?.description || String(item))
+                  )
+                : [],
               notes: session.transcription_text || associatedMeeting?.summary || '',
               recording_url: associatedMeeting?.recording_url,
               created_at: session.created_at,
