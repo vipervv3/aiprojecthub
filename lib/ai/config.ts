@@ -13,8 +13,9 @@ export const AI_CONFIG = {
       embedding: 'text-embedding-ada-002'
     },
     groq: {
-      chat: 'llama-3.1-8b-instant',  // Updated from decommissioned llama3-8b-8192
-      fast: 'mixtral-8x7b-32768'
+      chat: 'llama-3.1-70b-versatile',  // ✅ Better quality for task extraction and title generation
+      fast: 'llama-3.1-8b-instant',      // Fast fallback option
+      alt: 'mixtral-8x7b-32768'
     },
     assemblyai: {
       model: 'best'
