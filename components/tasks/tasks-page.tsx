@@ -5,6 +5,7 @@ import { useAuth } from '@/app/providers'
 import KanbanBoard from '@/components/tasks/kanban-board'
 import TaskFilters from '@/components/tasks/task-filters'
 import { dataService } from '@/lib/data-service'
+import { supabase } from '@/lib/supabase'
 import { toast } from 'react-hot-toast'
 
 interface Task {
@@ -56,11 +57,23 @@ export default function TasksPage() {
       // Load tasks from data service
       const loadedTasks = await dataService.getTasks(user.id)
       
-      // Transform tasks to include projects data
-      const tasksWithProjects = loadedTasks.map(task => ({
-        ...task,
-        projects: { name: task.project?.name || 'Unknown Project' }
-      }))
+      // Transform tasks to include projects data and ensure all fields are strings (not objects)
+      const tasksWithProjects = loadedTasks.map(task => {
+        // ✅ FIX: Ensure all fields are properly typed (no objects)
+        const safeTask = {
+          ...task,
+          title: typeof task.title === 'string' ? task.title : String(task.title || 'Untitled Task'),
+          description: typeof task.description === 'string' ? task.description : String(task.description || ''),
+          priority: typeof task.priority === 'string' ? task.priority : String(task.priority || 'medium'),
+          status: typeof task.status === 'string' ? task.status : String(task.status || 'todo'),
+          projects: { 
+            name: typeof task.project === 'object' && task.project?.name 
+              ? String(task.project.name) 
+              : (typeof task.project === 'string' ? task.project : 'Unknown Project')
+          }
+        }
+        return safeTask
+      })
       
       // Apply filters
       let filteredTasks = tasksWithProjects
@@ -180,13 +193,32 @@ export default function TasksPage() {
 
   const handleDeleteTask = async (taskId: string) => {
     try {
-      // Delete from database
+      // Get auth token for API request
+      if (!supabase) {
+        toast.error('Database connection not available')
+        return
+      }
+
+      const { data: { session } } = await supabase.auth.getSession()
+      
+      if (!session) {
+        toast.error('You must be logged in to delete tasks')
+        return
+      }
+
+      // Delete from database with authentication
       const response = await fetch(`/api/tasks/${taskId}`, {
         method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
       })
 
+      const data = await response.json()
+
       if (!response.ok) {
-        throw new Error('Failed to delete task')
+        throw new Error(data.error || 'Failed to delete task')
       }
 
       // Update local state
@@ -194,7 +226,7 @@ export default function TasksPage() {
       toast.success('Task deleted successfully')
     } catch (error) {
       console.error('Error deleting task:', error)
-      toast.error('Failed to delete task')
+      toast.error(error instanceof Error ? error.message : 'Failed to delete task')
     }
   }
 
