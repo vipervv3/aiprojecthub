@@ -369,12 +369,48 @@ export default function MeetingDetailPage() {
         console.warn('   Task error:', taskError?.message || 'none')
         console.warn('   Task data count:', taskData?.length || 0)
         
-        // ✅ REMOVED: No longer converting action_items as fallback
-        // This ensures only real extracted tasks (from meeting_tasks) are shown
-        // If action_items exist but no tasks are in meeting_tasks, it means tasks weren't properly linked
+        // ✅ AUTO-FIX: If tasks exist but aren't linked, try to link them
         if (meetingData && meetingData.action_items && Array.isArray(meetingData.action_items) && meetingData.action_items.length > 0) {
           console.warn(`   ⚠️  Found ${meetingData.action_items.length} action_items in meeting record, but no tasks in junction table`)
-          console.warn(`   ⚠️  This suggests tasks were extracted but not properly linked to the meeting`)
+          console.warn(`   🔧 Attempting to auto-link existing tasks...`)
+          
+          try {
+            // Get auth token
+            const { data: { session } } = await supabase.auth.getSession()
+            if (session) {
+              const linkResponse = await fetch(`/api/meetings/${actualMeetingId}/link-tasks`, {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${session.access_token}`,
+                  'Content-Type': 'application/json',
+                },
+              })
+              
+              if (linkResponse.ok) {
+                const linkData = await linkResponse.json()
+                console.log(`   ✅ Auto-linked ${linkData.linked || 0} tasks`)
+                
+                // Reload tasks after linking
+                if (linkData.linked > 0) {
+                  const { data: reloadedTaskData } = await supabase
+                    .from('meeting_tasks')
+                    .select(`task_id, tasks (*)`)
+                    .eq('meeting_id', actualMeetingId)
+                  
+                  if (reloadedTaskData && reloadedTaskData.length > 0) {
+                    validTasks = reloadedTaskData
+                      .map((mt: any) => mt.tasks)
+                      .filter((task: any) => task && task.id)
+                    console.log(`   ✅ Reloaded ${validTasks.length} tasks after linking`)
+                  }
+                }
+              } else {
+                console.warn(`   ⚠️  Auto-link failed:`, await linkResponse.text())
+              }
+            }
+          } catch (linkError) {
+            console.error('   ❌ Error auto-linking tasks:', linkError)
+          }
         }
       }
       
