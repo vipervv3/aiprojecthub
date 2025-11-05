@@ -216,25 +216,32 @@ export async function POST(request: NextRequest) {
         ? `Project Context: ${projectContext}\n\n`
         : ''
       
-      const titlePrompt = `You are an expert meeting title generator. Analyze this meeting transcript and generate a concise, professional title.
+      const titlePrompt = `You are an expert meeting title generator. Analyze this meeting transcript and generate a concise, professional title for the OVERALL MEETING.
 
 CRITICAL REQUIREMENTS:
 - Title must be between 10-60 characters
-- Capture the MAIN topic or purpose of the meeting
+- Capture the MAIN topic or purpose of the ENTIRE meeting (not individual tasks or action items)
+- Focus on WHAT the meeting was about, not specific tasks that came out of it
 - Be specific and descriptive (not generic like "Meeting" or "Recording")
 - Use professional, business-appropriate language
+- Do NOT use task titles or action item titles
 - Do NOT include quotes, colons after "Title:", or any other prefixes
 - Return ONLY the title text, nothing else
 
 ${titleContext}Meeting Transcript Excerpt:
 ${transcriptionText.substring(0, 2000)}
 
-Examples of EXCELLENT titles:
-- "Q4 Product Roadmap Planning Session"
-- "Bug Fix Discussion - Login Authentication Issue"
-- "Sprint 42 Planning - Backend API Development"
-- "Customer Feedback Review - Dashboard UX Improvements"
-- "Team Standup - Week 45 Status Updates"
+Examples of EXCELLENT titles (meeting topics, NOT tasks):
+- "Q4 Product Roadmap Planning Session" (not "Plan Q4 roadmap")
+- "Front Office Summit Planning Discussion" (not "Finalize FNB food")
+- "Sprint 42 Planning - Backend API Development" (not "Implement API endpoints")
+- "Customer Feedback Review - Dashboard UX Improvements" (not "Fix dashboard bugs")
+- "Team Standup - Week 45 Status Updates" (not "Update status")
+
+BAD examples (these are tasks, not meeting titles):
+- "Finalize FNB food for Front Office Summit" ❌ (this is a task)
+- "Set up meeting to finalize summit details" ❌ (this is a task)
+- "Review meeting summary and follow up" ❌ (this is a task)
 
 Generate ONLY the title (no quotes, no JSON, no explanation, no prefix like "Title:"):`
 
@@ -369,6 +376,7 @@ Generate ONLY the title (no quotes, no JSON, no explanation, no prefix like "Tit
       scheduled_at: scheduledAt,
       duration: session.duration || 0,
       recording_session_id: sessionId,
+      user_id: userId, // ✅ CRITICAL: Set user_id for RLS policies
       summary: taskExtraction.summary || 'No summary available',
       action_items: taskExtraction.tasks.map(t => ({
         title: t.title || 'Untitled action item',
@@ -394,6 +402,8 @@ Generate ONLY the title (no quotes, no JSON, no explanation, no prefix like "Tit
     } else {
       console.warn(`⚠️  No projectId available - meeting and tasks will not be linked to a project`)
     }
+    
+    console.log(`👤 Meeting user_id: ${userId}`)
 
     console.log('📝 Creating meeting with data:', {
       title: meetingData.title,
