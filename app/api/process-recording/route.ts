@@ -180,21 +180,54 @@ export async function POST(request: NextRequest) {
     // Start with a default, but try to extract something meaningful from transcript first
     let meetingTitle = session.title || `Recording - ${new Date(session.created_at).toLocaleDateString()}`
     
-    // Quick fallback: Extract first meaningful sentence from transcript as title
+    // Quick fallback: Extract first meaningful phrase from transcript as title
     const extractFallbackTitle = (text: string): string | null => {
       if (!text || text.length < 20) return null
       
-      // Try to find first sentence that's not too short
-      const sentences = text.split(/[.!?]\s+/).filter(s => s.length > 15 && s.length < 80)
+      // Try to find key phrases that indicate meeting topics
+      const topicPatterns = [
+        /(?:discussing|talking about|meeting about|planning|reviewing|working on)\s+([^.!?]{10,50})/i,
+        /(?:agenda|topic|subject|focus|purpose).*?([^.!?]{10,50})/i,
+        /(?:let's|we'll|we're|going to|need to)\s+(?:discuss|talk about|review|plan|work on)\s+([^.!?]{10,50})/i
+      ]
+      
+      for (const pattern of topicPatterns) {
+        const match = text.match(pattern)
+        if (match && match[1]) {
+          let title = match[1].trim()
+          // Remove common prefixes and filler words
+          title = title.replace(/^(so|well|okay|alright|yes|no|ok|um|uh|like|you know|the|a|an),?\s*/i, '')
+          // Capitalize first letter
+          title = title.charAt(0).toUpperCase() + title.slice(1)
+          // Limit to 50 chars and ensure it ends at a word boundary
+          if (title.length > 50) {
+            const truncated = title.substring(0, 47).trim()
+            const lastSpace = truncated.lastIndexOf(' ')
+            title = lastSpace > 10 ? truncated.substring(0, lastSpace) : truncated
+          }
+          if (title.length >= 8 && title.length <= 50) {
+            return title
+          }
+        }
+      }
+      
+      // Fallback: Try to find first sentence that's meaningful
+      const sentences = text.split(/[.!?]\s+/).filter(s => s.length > 10 && s.length < 100)
       if (sentences.length > 0) {
         let title = sentences[0].trim()
         // Remove common prefixes
-        title = title.replace(/^(so|well|okay|alright|yes|no|ok|um|uh|like|you know),?\s*/i, '')
+        title = title.replace(/^(so|well|okay|alright|yes|no|ok|um|uh|like|you know|the|a|an),?\s*/i, '')
         // Capitalize first letter
         title = title.charAt(0).toUpperCase() + title.slice(1)
-        // Limit length
-        if (title.length > 60) title = title.substring(0, 57) + '...'
-        return title
+        // Limit to 50 chars at word boundary
+        if (title.length > 50) {
+          const truncated = title.substring(0, 47).trim()
+          const lastSpace = truncated.lastIndexOf(' ')
+          title = lastSpace > 10 ? truncated.substring(0, lastSpace) : truncated
+        }
+        if (title.length >= 8 && title.length <= 50) {
+          return title
+        }
       }
       return null
     }
@@ -216,34 +249,42 @@ export async function POST(request: NextRequest) {
         ? `Project Context: ${projectContext}\n\n`
         : ''
       
-      const titlePrompt = `You are an expert meeting title generator. Analyze this meeting transcript and generate a concise, professional title for the OVERALL MEETING.
+      // Use more transcript for better context (first 4000 chars instead of 2000)
+      const transcriptExcerpt = transcriptionText.substring(0, 4000)
+      
+      const titlePrompt = `You are an expert meeting title generator. Analyze this meeting transcript and generate a VERY SHORT, intelligent title that summarizes the ENTIRE meeting.
 
 CRITICAL REQUIREMENTS:
-- Title must be between 10-60 characters
-- Capture the MAIN topic or purpose of the ENTIRE meeting (not individual tasks or action items)
-- Focus on WHAT the meeting was about, not specific tasks that came out of it
-- Be specific and descriptive (not generic like "Meeting" or "Recording")
+- Title must be 3-8 words (8-50 characters) - VERY SHORT overview
+- Capture the MAIN topic or purpose of the ENTIRE meeting in just a few words
+- Think of it as a headline or topic summary, not a description
+- Be specific and meaningful (not generic like "Meeting" or "Recording")
+- Focus on WHAT the meeting was about overall, not specific tasks or details
 - Use professional, business-appropriate language
 - Do NOT use task titles or action item titles
-- Do NOT include quotes, colons after "Title:", or any other prefixes
+- Do NOT include quotes, colons, or any prefixes
 - Return ONLY the title text, nothing else
 
-${titleContext}Meeting Transcript Excerpt:
-${transcriptionText.substring(0, 2000)}
+${titleContext}Meeting Transcript:
+${transcriptExcerpt}
 
-Examples of EXCELLENT titles (meeting topics, NOT tasks):
-- "Q4 Product Roadmap Planning Session" (not "Plan Q4 roadmap")
-- "Front Office Summit Planning Discussion" (not "Finalize FNB food")
-- "Sprint 42 Planning - Backend API Development" (not "Implement API endpoints")
-- "Customer Feedback Review - Dashboard UX Improvements" (not "Fix dashboard bugs")
-- "Team Standup - Week 45 Status Updates" (not "Update status")
+Examples of EXCELLENT titles (very short, intelligent overviews):
+- "Q4 Roadmap Planning" (3 words - captures main topic)
+- "Front Office Summit Planning" (3 words - clear purpose)
+- "Sprint Planning - Backend API" (4 words - concise and specific)
+- "Customer Feedback Review" (3 words - clear focus)
+- "Team Standup Updates" (3 words - brief and meaningful)
+- "Product Launch Strategy" (3 words - clear topic)
+- "Budget Approval Discussion" (3 words - specific purpose)
 
-BAD examples (these are tasks, not meeting titles):
-- "Finalize FNB food for Front Office Summit" ❌ (this is a task)
-- "Set up meeting to finalize summit details" ❌ (this is a task)
-- "Review meeting summary and follow up" ❌ (this is a task)
+BAD examples (too long, too generic, or task-focused):
+- "Finalize FNB food for Front Office Summit" ❌ (too long, task-focused)
+- "Meeting about planning and discussing things" ❌ (too generic)
+- "Review meeting summary and follow up" ❌ (task-focused)
+- "Recording" ❌ (too generic)
+- "Team Meeting" ❌ (too vague)
 
-Generate ONLY the title (no quotes, no JSON, no explanation, no prefix like "Title:"):`
+Generate ONLY a very short title (3-8 words, no quotes, no JSON, no explanation):`
 
       console.log(`🤖 Calling Groq AI for title generation...`)
       console.log(`   Prompt length: ${titlePrompt.length} chars`)
@@ -268,37 +309,62 @@ Generate ONLY the title (no quotes, no JSON, no explanation, no prefix like "Tit
         .replace(/^[^a-zA-Z0-9]+/, '') // Remove leading non-alphanumeric
         .replace(/[^a-zA-Z0-9]+$/, '') // Remove trailing non-alphanumeric
         .trim()
-        .substring(0, 60) // Ensure max 60 chars
+        .substring(0, 50) // Ensure max 50 chars (shorter for concise titles)
       
-      // ✅ More lenient validation - accept most titles unless they're clearly broken
-      if (cleanedTitle && cleanedTitle.length >= 5 && cleanedTitle.length <= 100) {
-        const genericWords = ['meeting', 'recording', 'call', 'conversation', 'discussion']
+      // ✅ Accept titles that are 8-50 characters (very short to medium length)
+      // This allows for 3-8 word titles which is what we want
+      if (cleanedTitle && cleanedTitle.length >= 8 && cleanedTitle.length <= 50) {
+        const genericWords = ['meeting', 'recording', 'call', 'conversation', 'discussion', 'team meeting', 'business meeting']
         const lowerTitle = cleanedTitle.toLowerCase().trim()
         
-        // Only reject if title is EXACTLY a generic word (very strict)
-        const isExactlyGeneric = genericWords.includes(lowerTitle) && lowerTitle.length < 15
+        // Check if title is ONLY generic words (reject these)
+        const words = lowerTitle.split(/\s+/)
+        const isOnlyGeneric = words.length <= 2 && words.every(word => genericWords.includes(word))
         
-        if (!isExactlyGeneric) {
+        if (!isOnlyGeneric) {
           meetingTitle = cleanedTitle
           console.log(`✅ Generated intelligent title: "${meetingTitle}"`)
           console.log(`   Title length: ${meetingTitle.length} chars`)
+          console.log(`   Word count: ${cleanedTitle.split(/\s+/).length} words`)
         } else {
-          console.warn(`⚠️ Title is exactly generic word, using default: "${cleanedTitle}"`)
+          console.warn(`⚠️ Title is only generic words, trying fallback: "${cleanedTitle}"`)
+          // Try fallback
+          const fallbackTitle = extractFallbackTitle(transcriptionText)
+          if (fallbackTitle && fallbackTitle.length >= 8) {
+            meetingTitle = fallbackTitle.substring(0, 50)
+            console.log(`✅ Using fallback title: "${meetingTitle}"`)
+          }
         }
       } else if (cleanedTitle && cleanedTitle.length > 0) {
-        // Even if length is wrong, try to use it if it's meaningful
-        if (cleanedTitle.length > 100) {
-          meetingTitle = cleanedTitle.substring(0, 100)
+        // If length is slightly off, try to fix it
+        if (cleanedTitle.length > 50) {
+          // Truncate long titles but preserve word boundaries
+          const truncated = cleanedTitle.substring(0, 47).trim()
+          const lastSpace = truncated.lastIndexOf(' ')
+          meetingTitle = lastSpace > 30 ? truncated.substring(0, lastSpace) : truncated
           console.log(`✅ Using truncated title: "${meetingTitle}"`)
-        } else if (cleanedTitle.length >= 3) {
-          // Accept even very short titles if they're not generic
+        } else if (cleanedTitle.length >= 5) {
+          // Accept very short titles if they're meaningful (not just generic words)
           const lowerTitle = cleanedTitle.toLowerCase().trim()
-          if (!['meeting', 'recording', 'call'].includes(lowerTitle)) {
+          const genericWords = ['meeting', 'recording', 'call']
+          if (!genericWords.includes(lowerTitle)) {
             meetingTitle = cleanedTitle
-            console.log(`✅ Using short but valid title: "${meetingTitle}"`)
+            console.log(`✅ Using short but meaningful title: "${meetingTitle}"`)
+          } else {
+            console.warn(`⚠️ Title too generic (${cleanedTitle.length} chars), trying fallback`)
+            const fallbackTitle = extractFallbackTitle(transcriptionText)
+            if (fallbackTitle && fallbackTitle.length >= 8) {
+              meetingTitle = fallbackTitle.substring(0, 50)
+              console.log(`✅ Using fallback title: "${meetingTitle}"`)
+            }
           }
         } else {
-          console.warn(`⚠️ Title too short (${cleanedTitle.length} chars), using default. Raw: "${generatedTitle}"`)
+          console.warn(`⚠️ Title too short (${cleanedTitle.length} chars), trying fallback. Raw: "${generatedTitle}"`)
+          const fallbackTitle = extractFallbackTitle(transcriptionText)
+          if (fallbackTitle && fallbackTitle.length >= 8) {
+            meetingTitle = fallbackTitle.substring(0, 50)
+            console.log(`✅ Using fallback title: "${meetingTitle}"`)
+          }
         }
       } else {
         console.warn(`⚠️ Title empty or invalid, using fallback. Raw: "${generatedTitle}"`)
@@ -306,8 +372,8 @@ Generate ONLY the title (no quotes, no JSON, no explanation, no prefix like "Tit
         
         // Try fallback extraction from transcript
         const fallbackTitle = extractFallbackTitle(transcriptionText)
-        if (fallbackTitle && fallbackTitle.length >= 10) {
-          meetingTitle = fallbackTitle
+        if (fallbackTitle && fallbackTitle.length >= 8) {
+          meetingTitle = fallbackTitle.substring(0, 50)
           console.log(`✅ Using fallback title from transcript: "${meetingTitle}"`)
         }
       }
