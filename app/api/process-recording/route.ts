@@ -104,15 +104,45 @@ export async function POST(request: NextRequest) {
         taskExtraction.tasks = []
       }
       
-      // If no tasks extracted, try to create at least one summary task
-      if (taskExtraction.tasks.length === 0 && taskExtraction.summary) {
-        console.warn('⚠️ No tasks extracted, creating summary task')
-        taskExtraction.tasks = [{
-          title: 'Review meeting summary and follow up',
-          description: taskExtraction.summary.substring(0, 200),
-          priority: 'medium' as const,
-          estimatedHours: 1
-        }]
+      // If no tasks extracted, try harder to extract from summary or transcript
+      if (taskExtraction.tasks.length === 0) {
+        console.warn('⚠️ No tasks extracted, attempting to extract from summary or transcript')
+        
+        // Try to find action items in the summary
+        const summary = taskExtraction.summary || transcriptionText.substring(0, 500)
+        const actionPatterns = [
+          /(?:need to|should|must|will|going to|plan to|gonna)\s+([^.!?]+)/gi,
+          /(?:action item|task|todo|follow.?up):\s*([^.!?\n]+)/gi,
+          /(?:complete|finish|do|implement|create|build|fix)\s+([^.!?]+)/gi
+        ]
+        
+        const foundActions: string[] = []
+        actionPatterns.forEach(pattern => {
+          const matches = summary.matchAll(pattern)
+          for (const match of matches) {
+            if (match[1] && match[1].trim().length > 10) {
+              foundActions.push(match[1].trim())
+            }
+          }
+        })
+        
+        if (foundActions.length > 0) {
+          console.log(`✅ Found ${foundActions.length} potential tasks from patterns`)
+          taskExtraction.tasks = foundActions.slice(0, 5).map((action, idx) => ({
+            title: action.substring(0, 100),
+            description: `Extracted action item from meeting: ${action}`,
+            priority: 'medium' as const,
+            estimatedHours: 1
+          }))
+        } else if (taskExtraction.summary) {
+          console.warn('⚠️ No action patterns found, creating summary task')
+          taskExtraction.tasks = [{
+            title: 'Review meeting summary and follow up',
+            description: taskExtraction.summary.substring(0, 200),
+            priority: 'medium' as const,
+            estimatedHours: 1
+          }]
+        }
       }
       
       if (!taskExtraction.summary) {

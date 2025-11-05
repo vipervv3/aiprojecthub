@@ -96,25 +96,55 @@ export class AIService {
         throw new Error(errorMsg)
       }
       
-      console.log(`🚀 Calling Groq AI (model: ${AI_CONFIG.models.groq.chat})...`)
-      console.log(`   API Key: ${apiKey.substring(0, 10)}...${apiKey.substring(apiKey.length - 4)} (${apiKey.length} chars)`)
-      console.log(`   Prompt length: ${prompt.length} chars`)
+      // Try primary model first, fallback to fast model if it fails
+      let modelToUse = AI_CONFIG.models.groq.chat
+      let response: any
       
-      const response = await this.groq.chat.completions.create({
-        model: AI_CONFIG.models.groq.chat,
-        messages: [
-          {
-            role: 'system',
-            content: context || 'You are an AI assistant helping with project management and task analysis.'
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        max_tokens: AI_CONFIG.limits.maxTokens,
-        temperature: 0.7,
-      })
+      try {
+        console.log(`🚀 Calling Groq AI (model: ${modelToUse})...`)
+        console.log(`   API Key: ${apiKey.substring(0, 10)}...${apiKey.substring(apiKey.length - 4)} (${apiKey.length} chars)`)
+        console.log(`   Prompt length: ${prompt.length} chars`)
+        
+        response = await this.groq.chat.completions.create({
+          model: modelToUse,
+          messages: [
+            {
+              role: 'system',
+              content: context || 'You are an AI assistant helping with project management and task analysis.'
+            },
+            {
+              role: 'user',
+              content: prompt
+            }
+          ],
+          max_tokens: AI_CONFIG.limits.maxTokens,
+          temperature: 0.7,
+        })
+      } catch (modelError: any) {
+        // If model not found, try fallback model
+        if (modelError?.message?.includes('model') || modelError?.status === 404 || modelError?.code === 'model_not_found') {
+          console.warn(`⚠️  Model ${modelToUse} failed, trying fallback: ${AI_CONFIG.models.groq.fast}`)
+          modelToUse = AI_CONFIG.models.groq.fast
+          response = await this.groq.chat.completions.create({
+            model: modelToUse,
+            messages: [
+              {
+                role: 'system',
+                content: context || 'You are an AI assistant helping with project management and task analysis.'
+              },
+              {
+                role: 'user',
+                content: prompt
+              }
+            ],
+            max_tokens: AI_CONFIG.limits.maxTokens,
+            temperature: 0.7,
+          })
+          console.log(`✅ Fallback model ${modelToUse} succeeded`)
+        } else {
+          throw modelError
+        }
+      }
 
       const result = response.choices[0]?.message?.content
       console.log(`✅ Groq response received (${result?.length || 0} chars)`)
