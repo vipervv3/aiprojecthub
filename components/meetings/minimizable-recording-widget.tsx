@@ -231,6 +231,11 @@ export default function MinimizableRecordingWidget({
     console.log('Blob size:', blob.size, 'bytes')
     console.log('User ID:', user?.id)
     console.log('Project ID:', selectedProjectId)
+    console.log('User authenticated:', !!user)
+    console.log('Device info:', {
+      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
+      online: typeof navigator !== 'undefined' ? navigator.onLine : 'unknown'
+    })
     
     if (!blob) {
       console.error('❌ No recording blob available')
@@ -245,8 +250,20 @@ export default function MinimizableRecordingWidget({
     }
 
     if (!user?.id) {
-      console.error('❌ No user ID')
-      toast.error('You must be logged in to save recordings')
+      console.error('❌ No user ID - User may not be logged in on this device')
+      console.error('   User object:', user)
+      toast.error('You must be logged in to save recordings. Please log in and try again.', {
+        duration: 5000,
+      })
+      return
+    }
+    
+    // ✅ Check network connectivity
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      console.error('❌ No internet connection')
+      toast.error('No internet connection. Please check your network and try again.', {
+        duration: 5000,
+      })
       return
     }
 
@@ -265,15 +282,33 @@ export default function MinimizableRecordingWidget({
       formData.append('projectId', selectedProjectId)
       
       console.log('📤 Uploading via /api/recordings...')
+      console.log('   Endpoint: /api/recordings')
+      console.log('   File size:', blob.size, 'bytes (', (blob.size / 1024 / 1024).toFixed(2), 'MB)')
+      
       const response = await fetch('/api/recordings', {
         method: 'POST',
         body: formData,
       })
 
-      const result = await response.json()
+      console.log('📡 Upload response status:', response.status)
+      console.log('   Response OK:', response.ok)
+      
+      let result
+      try {
+        result = await response.json()
+        console.log('📡 Upload response data:', result)
+      } catch (parseError) {
+        const text = await response.text()
+        console.error('❌ Failed to parse response as JSON:', parseError)
+        console.error('   Raw response:', text.substring(0, 500))
+        throw new Error(`Server error (${response.status}): ${text.substring(0, 200)}`)
+      }
 
       if (!response.ok) {
-        throw new Error(result.error || 'Upload failed')
+        console.error('❌ Upload failed with status:', response.status)
+        console.error('   Error details:', result)
+        const errorMessage = result?.error || result?.details || result?.message || `Upload failed with status ${response.status}`
+        throw new Error(errorMessage)
       }
 
       console.log('✅ Recording uploaded:', result.session.id)
@@ -335,10 +370,38 @@ export default function MinimizableRecordingWidget({
       
     } catch (error) {
       console.error('❌ UPLOAD FAILED:', error)
-      console.error('Error details:', JSON.stringify(error, null, 2))
-      toast.error(`Failed to upload recording: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      console.error('Error type:', error?.constructor?.name || typeof error)
+      console.error('Error message:', error instanceof Error ? error.message : String(error))
+      console.error('Error stack:', error instanceof Error ? error.stack : 'N/A')
+      
+      // ✅ More detailed error messages for common issues
+      let errorMessage = 'Unknown error'
+      if (error instanceof Error) {
+        errorMessage = error.message
+        
+        // Check for specific error types
+        if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+          errorMessage = 'Network error: Please check your internet connection and try again.'
+        } else if (error.message.includes('401') || error.message.includes('Unauthorized')) {
+          errorMessage = 'Authentication error: Please log in again and try recording.'
+        } else if (error.message.includes('413') || error.message.includes('too large')) {
+          errorMessage = 'File too large: Maximum size is 50MB. Try a shorter recording.'
+        } else if (error.message.includes('timeout')) {
+          errorMessage = 'Upload timeout: Please check your internet connection and try again.'
+        }
+      }
+      
+      toast.error(`Failed to upload recording: ${errorMessage}`, {
+        duration: 6000,
+        icon: '❌',
+      })
+      
+      // ✅ Keep the recording blob so user can try again
       setUploading(false)
-      setProcessingStatus('')
+      setProcessingStatus(`Upload failed: ${errorMessage}`)
+      
+      // Don't reset state - allow user to retry by clicking "Stop Recording" again
+      // The blob is still available, so they can try uploading again
     }
   }
 
@@ -618,6 +681,37 @@ export default function MinimizableRecordingWidget({
                       <p className="text-xs text-indigo-600 mt-3">
                         <strong>Project:</strong> {projects.find(p => p.id === selectedProjectId)?.name || 'Unknown Project'}
                       </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Error state with retry button */}
+            {!isRecording && audioBlob && !uploading && processingStatus && processingStatus.includes('failed') && (
+              <div className="mb-6">
+                <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                  <div className="flex items-start gap-3">
+                    <div className="text-red-600 text-xl">❌</div>
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-red-900 mb-1">
+                        Upload Failed
+                      </p>
+                      <p className="text-xs text-red-700 mb-3">
+                        {processingStatus}
+                      </p>
+                      <button
+                        onClick={() => {
+                          if (audioBlob) {
+                            setProcessingStatus('Retrying upload...')
+                            handleUploadWithBlob(audioBlob)
+                          }
+                        }}
+                        className="btn btn-sm btn-primary"
+                      >
+                        <Upload className="h-3 w-3 mr-2" />
+                        Retry Upload
+                      </button>
                     </div>
                   </div>
                 </div>

@@ -8,12 +8,26 @@ export async function POST(request: NextRequest) {
   let uploadedFilePath: string | null = null
   
   try {
+    console.log('📼 Recording upload request received')
+    console.log('   Request headers:', {
+      'content-type': request.headers.get('content-type'),
+      'user-agent': request.headers.get('user-agent'),
+      'origin': request.headers.get('origin'),
+    })
+    
     const formData = await request.formData()
     const audioFile = formData.get('audio') as File
     const title = formData.get('title') as string
     const duration = parseInt(formData.get('duration') as string)
     const userId = formData.get('userId') as string
     const projectId = formData.get('projectId') as string | null
+    
+    console.log('📼 Form data received:')
+    console.log('   Audio file:', audioFile ? `${audioFile.name} (${audioFile.size} bytes)` : 'MISSING')
+    console.log('   Title:', title || 'MISSING')
+    console.log('   Duration:', duration || 'MISSING')
+    console.log('   User ID:', userId || 'MISSING')
+    console.log('   Project ID:', projectId || 'none')
 
     // ✅ Bulletproof validation
     if (!audioFile) {
@@ -140,7 +154,12 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (dbError) {
-      console.error('Database error:', dbError)
+      console.error('❌ Database error creating recording session:', dbError)
+      console.error('   Error code:', dbError.code)
+      console.error('   Error message:', dbError.message)
+      console.error('   Error details:', dbError.details)
+      console.error('   Error hint:', dbError.hint)
+      
       // ✅ Clean up uploaded file if database insert fails
       if (uploadedFilePath) {
         try {
@@ -151,7 +170,12 @@ export async function POST(request: NextRequest) {
         }
       }
       return NextResponse.json(
-        { error: 'Failed to create recording session', details: dbError.message },
+        { 
+          error: 'Failed to create recording session', 
+          details: dbError.message,
+          code: dbError.code,
+          hint: dbError.hint
+        },
         { status: 500 }
       )
     }
@@ -165,11 +189,27 @@ export async function POST(request: NextRequest) {
       message: 'Recording uploaded successfully',
     })
   } catch (error) {
-    console.error('Error in recordings API:', error)
+    console.error('❌ Error in recordings API:', error)
+    console.error('   Error type:', error?.constructor?.name || typeof error)
+    console.error('   Error message:', error instanceof Error ? error.message : String(error))
+    console.error('   Error stack:', error instanceof Error ? error.stack : 'N/A')
+    
+    // ✅ Clean up uploaded file if it exists
+    if (uploadedFilePath) {
+      try {
+        const supabase = createClient(supabaseUrl, supabaseServiceKey)
+        await supabase.storage.from('meeting-recordings').remove([uploadedFilePath])
+        console.log('✅ Cleaned up uploaded file after error')
+      } catch (cleanupError) {
+        console.error('⚠️ Failed to clean up file:', cleanupError)
+      }
+    }
+    
     return NextResponse.json(
       {
         error: 'Failed to process recording',
         details: error instanceof Error ? error.message : 'Unknown error',
+        type: error?.constructor?.name || typeof error,
       },
       { status: 500 }
     )
