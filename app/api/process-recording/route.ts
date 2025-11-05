@@ -509,17 +509,20 @@ Generate ONLY the title (no quotes, no JSON, no explanation, no prefix like "Tit
     }
 
     // 6. Mark recording as processed
+    const processedAt = new Date().toISOString()
+    const updatedMetadata = {
+      ...(session.metadata || {}),
+      meeting_id: meeting.id,
+      tasks_created: createdTasksCount,
+      processed_at: processedAt
+    }
+    
     await supabase
       .from('recording_sessions')
       .update({
         ai_processed: true,
         title: meetingTitle, // Update recording title too
-        metadata: {
-          ...session.metadata,
-          meeting_id: meeting.id,
-          tasks_created: createdTasksCount,
-          processed_at: new Date().toISOString()
-        }
+        metadata: updatedMetadata
       })
       .eq('id', sessionId)
 
