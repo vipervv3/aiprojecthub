@@ -322,27 +322,45 @@ Generate ONLY the title (no quotes, no JSON, no explanation, no prefix like "Tit
         .select()
 
       if (tasksError) {
-        console.warn('Error creating tasks:', tasksError)
+        console.error('❌ Error creating tasks:', tasksError)
+        console.error('   Error code:', tasksError.code)
+        console.error('   Error message:', tasksError.message)
+        console.error('   Error details:', tasksError.details)
       } else {
         createdTasksCount = createdTasks?.length || 0
         console.log(`✅ Created ${createdTasksCount} tasks`)
         
-        // ✅ Link tasks to meeting via meeting_tasks table
         if (createdTasks && createdTasks.length > 0) {
+          console.log(`   Task IDs:`, createdTasks.map((t: any) => t.id).join(', '))
+          
+          // ✅ Link tasks to meeting via meeting_tasks table
           const meetingTaskLinks = createdTasks.map((task: any) => ({
             meeting_id: meeting.id,
             task_id: task.id
           }))
           
-          const { error: linkError } = await supabase
+          console.log(`📎 Linking ${meetingTaskLinks.length} tasks to meeting ${meeting.id}...`)
+          console.log(`   Links:`, JSON.stringify(meetingTaskLinks, null, 2))
+          
+          const { data: insertedLinks, error: linkError } = await supabase
             .from('meeting_tasks')
             .insert(meetingTaskLinks)
+            .select()
           
           if (linkError) {
-            console.warn('Error linking tasks to meeting:', linkError)
+            console.error('❌ Error linking tasks to meeting:', linkError)
+            console.error('   Error code:', linkError.code)
+            console.error('   Error message:', linkError.message)
+            console.error('   Error details:', linkError.details)
+            console.error('   Error hint:', linkError.hint)
           } else {
-            console.log(`✅ Linked ${createdTasks.length} tasks to meeting ${meeting.id}`)
+            console.log(`✅ Successfully linked ${insertedLinks?.length || 0} tasks to meeting ${meeting.id}`)
+            if (insertedLinks) {
+              console.log(`   Linked task IDs:`, insertedLinks.map((l: any) => l.task_id).join(', '))
+            }
           }
+        } else {
+          console.warn('⚠️ No tasks to link (createdTasks is empty)')
         }
       }
     }
