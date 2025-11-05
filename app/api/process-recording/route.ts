@@ -66,9 +66,39 @@ export async function POST(request: NextRequest) {
     const transcriptionText = session.transcription_text
 
     // 2. Extract tasks and get summary
-    const taskExtraction = await aiService.extractTasksFromText(transcriptionText)
-    
-    console.log(`📋 Extracted ${taskExtraction.tasks.length} tasks`)
+    let taskExtraction
+    try {
+      taskExtraction = await aiService.extractTasksFromText(transcriptionText)
+      console.log(`📋 Extracted ${taskExtraction?.tasks?.length || 0} tasks`)
+      
+      // Validate task extraction result
+      if (!taskExtraction || typeof taskExtraction !== 'object') {
+        throw new Error('Task extraction returned invalid result')
+      }
+      
+      if (!Array.isArray(taskExtraction.tasks)) {
+        console.warn('⚠️ Task extraction tasks is not an array, setting to empty array')
+        taskExtraction.tasks = []
+      }
+      
+      if (!taskExtraction.summary) {
+        console.warn('⚠️ Task extraction summary is missing, generating fallback')
+        taskExtraction.summary = 'Meeting summary will be generated shortly.'
+      }
+      
+      if (typeof taskExtraction.confidence !== 'number') {
+        taskExtraction.confidence = 0.5
+      }
+    } catch (extractionError: any) {
+      console.error('❌ Error extracting tasks:', extractionError)
+      // Use fallback empty extraction
+      taskExtraction = {
+        tasks: [],
+        summary: 'Unable to extract tasks automatically. Please review the transcript manually.',
+        confidence: 0
+      }
+      console.warn('⚠️ Using fallback task extraction')
+    }
 
     // 3. Generate meaningful meeting title using improved prompt
     let meetingTitle = session.title || `Recording - ${new Date(session.created_at).toLocaleDateString()}`
@@ -250,25 +280,39 @@ Generate ONLY the title text (no quotes, no JSON, no explanation, just the title
       confidence: taskExtraction.confidence,
       message: `Created meeting "${meetingTitle}" with ${createdTasksCount} tasks`
     })
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error)
-    const errorStack = error instanceof Error ? error.stack : String(error)
-    console.error('❌ Error in process-recording API:', errorMessage)
-    console.error('   Full error:', errorStack)
+  } catch (error: any) {
+    // Better error serialization - handle all error types
+    let errorMessage = 'Unknown error'
+    let errorDetails = ''
     
-    // Provide more detailed error information
-    let errorDetails = errorMessage
-    if (error instanceof Error && error.stack) {
-      // Include first few lines of stack trace for debugging
-      const stackLines = error.stack.split('\n').slice(0, 3).join('\n')
-      errorDetails = `${errorMessage}\n\nStack:\n${stackLines}`
+    if (error instanceof Error) {
+      errorMessage = error.message
+      errorDetails = error.stack || error.message
+    } else if (typeof error === 'string') {
+      errorMessage = error
+      errorDetails = error
+    } else if (error && typeof error === 'object') {
+      // Handle Supabase errors and other object errors
+      if (error.message) {
+        errorMessage = error.message
+      } else if (error.error) {
+        errorMessage = typeof error.error === 'string' ? error.error : error.error.message || 'Unknown error'
+      } else {
+        errorMessage = JSON.stringify(error)
+      }
+      errorDetails = error.code ? `${error.code}: ${errorMessage}` : errorMessage
     }
+    
+    console.error('❌ Error in process-recording API:', errorMessage)
+    console.error('   Full error:', error)
+    console.error('   Error type:', error?.constructor?.name || typeof error)
     
     return NextResponse.json(
       {
         error: 'Failed to process recording',
-        details: errorDetails,
-        message: errorMessage, // Also include in message field for easier access
+        details: errorDetails.substring(0, 500), // Limit length
+        message: errorMessage,
+        errorType: error?.constructor?.name || typeof error,
       },
       { status: 500 }
     )

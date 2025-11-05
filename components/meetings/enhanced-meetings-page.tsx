@@ -431,8 +431,9 @@ export default function EnhancedMeetingsPage() {
                   loadMeetings()
                 }, 3000)
               } else {
-                const error = await response.json()
-                console.error(`❌ Auto-processing failed for ${sessionId}:`, error)
+              const error = await response.json()
+              console.error(`❌ Auto-processing failed for ${sessionId}:`, error)
+              console.error('   Error details:', error.details || error.message || JSON.stringify(error))
               }
             } catch (error) {
               console.error(`❌ Error auto-processing ${sessionId}:`, error)
