@@ -106,16 +106,54 @@ class DataService {
         // For demo purposes, use a fixed UUID for the demo user
         const assigneeId = userId === 'demo-user' ? '550e8400-e29b-41d4-a716-446655440000' : userId
         
-        const { data, error } = await this.supabase
+        // ✅ Get user's projects first
+        const { data: projects, error: projectsError } = await this.supabase
+          .from('projects')
+          .select('id')
+          .eq('owner_id', userId)
+        
+        const projectIds = projects?.map(p => p.id) || []
+        
+        // ✅ Query tasks by assignee_id OR project_id (to include AI-generated tasks)
+        // First, get tasks assigned to user
+        const { data: tasksByAssignee, error: assigneeError } = await this.supabase
           .from('tasks')
           .select('*')
           .eq('assignee_id', assigneeId)
-          .order('created_at', { ascending: false })
+        
+        // Then, get tasks in user's projects (if any projects exist)
+        let tasksByProject: any[] = []
+        if (projectIds.length > 0) {
+          const { data: projectTasks, error: projectError } = await this.supabase
+            .from('tasks')
+            .select('*')
+            .in('project_id', projectIds)
+          
+          if (!projectError && projectTasks) {
+            tasksByProject = projectTasks
+          }
+        }
+        
+        // Combine and deduplicate tasks
+        const allTasks = [...(tasksByAssignee || []), ...tasksByProject]
+        const uniqueTasks = allTasks.filter((task, index, self) => 
+          index === self.findIndex(t => t.id === task.id)
+        )
+        
+        // Sort by created_at
+        uniqueTasks.sort((a, b) => 
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        )
+        
+        const data = uniqueTasks
+        const error = assigneeError
         
         if (error) {
           console.warn('Failed to fetch tasks from Supabase:', error)
         } else {
           console.log('Loaded tasks from Supabase:', data?.length || 0)
+          console.log(`   Tasks by assignee: ${data?.filter(t => t.assignee_id === assigneeId).length || 0}`)
+          console.log(`   Tasks by project: ${data?.filter(t => t.project_id && projectIds.includes(t.project_id)).length || 0}`)
           return data || []
         }
       } catch (error) {
