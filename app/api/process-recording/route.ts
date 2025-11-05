@@ -28,8 +28,6 @@ export async function POST(request: NextRequest) {
       )
     }
     
-    console.log(`🤖 Processing with project context: ${projectId || 'none'}`)
-
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
     // 1. Get recording session with transcription
@@ -45,6 +43,11 @@ export async function POST(request: NextRequest) {
         { status: 404 }
       )
     }
+
+    // ✅ Get projectId from request body OR session metadata (fallback)
+    const finalProjectId = projectId || session.metadata?.projectId || null
+    console.log(`🤖 Processing with project context: ${finalProjectId || 'none'}`)
+    console.log(`   From request: ${projectId || 'none'}, From metadata: ${session.metadata?.projectId || 'none'}`)
 
     if (!session.transcription_text) {
       return NextResponse.json(
@@ -73,14 +76,15 @@ export async function POST(request: NextRequest) {
     try {
       // Get project context if available
       let projectContext = null
-      if (projectId) {
+      if (finalProjectId) {
         const { data: project } = await supabase
           .from('projects')
           .select('name, description')
-          .eq('id', projectId)
+          .eq('id', finalProjectId)
           .single()
         if (project) {
           projectContext = `Project: ${project.name}${project.description ? ` - ${project.description}` : ''}`
+          console.log(`📁 Project context: ${projectContext}`)
         }
       }
       
@@ -143,44 +147,74 @@ export async function POST(request: NextRequest) {
     let meetingTitle = session.title || `Recording - ${new Date(session.created_at).toLocaleDateString()}`
     
     try {
-      // Use a better prompt for title generation
-      const titlePrompt = `You are a meeting title generator. Analyze this meeting transcript and generate a concise, professional title (max 60 characters).
-
-The title should:
-- Capture the main topic or purpose
-- Be specific and descriptive
-- Use professional language
-- Be 60 characters or less
-
-Examples of good titles:
-- "Q4 Product Roadmap Planning"
-- "Bug Fix Discussion - Login Issue"
-- "Sprint Planning - Week 42"
-- "Customer Feedback Review Session"
-
-Meeting Transcript:
-${transcriptionText.substring(0, 1000)}
-
-Generate ONLY the title text (no quotes, no JSON, no explanation, just the title):`
-
-      const generatedTitle = await aiService.analyzeWithFallback(titlePrompt)
+      console.log(`🎯 Generating intelligent title from transcript...`)
       
-      // Clean up the response
+      // Use a more explicit prompt for title generation with Groq
+      const titleContext = finalProjectId && projectContext 
+        ? `Project Context: ${projectContext}\n\n`
+        : ''
+      
+      const titlePrompt = `You are an expert meeting title generator. Analyze this meeting transcript and generate a concise, professional title.
+
+CRITICAL REQUIREMENTS:
+- Title must be between 10-60 characters
+- Capture the MAIN topic or purpose of the meeting
+- Be specific and descriptive (not generic like "Meeting" or "Recording")
+- Use professional, business-appropriate language
+- Do NOT include quotes, colons after "Title:", or any other prefixes
+- Return ONLY the title text, nothing else
+
+${titleContext}Meeting Transcript Excerpt:
+${transcriptionText.substring(0, 2000)}
+
+Examples of EXCELLENT titles:
+- "Q4 Product Roadmap Planning Session"
+- "Bug Fix Discussion - Login Authentication Issue"
+- "Sprint 42 Planning - Backend API Development"
+- "Customer Feedback Review - Dashboard UX Improvements"
+- "Team Standup - Week 45 Status Updates"
+
+Generate ONLY the title (no quotes, no JSON, no explanation, no prefix like "Title:"):`
+
+      console.log(`🤖 Calling Groq AI for title generation...`)
+      const generatedTitle = await aiService.analyzeWithFallback(titlePrompt)
+      console.log(`📝 Raw title response: "${generatedTitle}"`)
+      
+      // Clean up the response more aggressively
       let cleanedTitle = generatedTitle
+        .toString()
+        .trim()
         .replace(/^["']|["']$/g, '') // Remove quotes
-        .replace(/^Title:\s*/i, '') // Remove "Title:" prefix if present
+        .replace(/^Title:\s*/i, '') // Remove "Title:" prefix
+        .replace(/^Meeting Title:\s*/i, '') // Remove "Meeting Title:" prefix
+        .replace(/^Generated Title:\s*/i, '') // Remove "Generated Title:" prefix
+        .replace(/```json\s*/g, '') // Remove markdown code blocks
+        .replace(/```\s*/g, '')
+        .replace(/\{[^}]*"title"\s*:\s*"([^"]+)"[^}]*\}/i, '$1') // Extract from JSON if wrapped
         .replace(/\n.*/g, '') // Remove any newlines and everything after
+        .replace(/^[^a-zA-Z0-9]+/, '') // Remove leading non-alphanumeric
+        .replace(/[^a-zA-Z0-9]+$/, '') // Remove trailing non-alphanumeric
         .trim()
         .substring(0, 60) // Ensure max 60 chars
       
-      if (cleanedTitle && cleanedTitle.length > 5 && cleanedTitle !== 'Meeting Recording') {
-        meetingTitle = cleanedTitle
-        console.log(`📝 Generated intelligent title: "${meetingTitle}"`)
+      if (cleanedTitle && cleanedTitle.length >= 10 && cleanedTitle.length <= 60) {
+        // Additional validation: reject generic titles
+        const genericTitles = ['meeting', 'recording', 'call', 'conversation', 'discussion']
+        const isGeneric = genericTitles.some(g => cleanedTitle.toLowerCase().includes(g) && cleanedTitle.length < 20)
+        
+        if (!isGeneric) {
+          meetingTitle = cleanedTitle
+          console.log(`✅ Generated intelligent title: "${meetingTitle}"`)
+        } else {
+          console.warn(`⚠️ Title too generic, using default: "${cleanedTitle}"`)
+        }
       } else {
-        console.warn(`⚠️ Title generation returned invalid result, using default: "${generatedTitle}"`)
+        console.warn(`⚠️ Title invalid (length: ${cleanedTitle?.length || 0}), using default. Raw: "${generatedTitle}"`)
       }
-    } catch (titleError) {
+    } catch (titleError: any) {
       console.error('❌ Error generating title:', titleError)
+      console.error('   Error message:', titleError?.message)
+      console.error('   Error stack:', titleError?.stack)
       // Keep the default title
     }
 
@@ -211,9 +245,9 @@ Generate ONLY the title text (no quotes, no JSON, no explanation, just the title
     }
     
     // Add project_id if provided
-    if (projectId) {
-      meetingData.project_id = projectId
-      console.log(`📁 Linking meeting to project: ${projectId}`)
+    if (finalProjectId) {
+      meetingData.project_id = finalProjectId
+      console.log(`📁 Linking meeting to project: ${finalProjectId}`)
     }
 
     console.log('📝 Creating meeting with data:', {
@@ -249,7 +283,7 @@ Generate ONLY the title text (no quotes, no JSON, no explanation, just the title
       tasksToCreate = taskExtraction.tasks.map(task => ({
         title: task.title,
         description: task.description,
-        project_id: projectId || null, // ✅ Associate with selected project
+        project_id: finalProjectId || null, // ✅ Associate with selected project
         assignee_id: task.assignee === 'User' ? userId : null,
         status: 'todo' as const,
         priority: task.priority,
@@ -260,13 +294,14 @@ Generate ONLY the title text (no quotes, no JSON, no explanation, just the title
         tags: ['meeting-generated', `meeting:${meeting.id}`],
       }))
       console.log(`📋 Creating ${tasksToCreate.length} tasks from task extraction`)
+      console.log(`   Project ID for tasks: ${finalProjectId || 'none'}`)
     } else if (meeting.action_items && meeting.action_items.length > 0) {
       // Fallback: Create tasks from action items if task extraction failed
       console.log(`⚠️  Task extraction returned 0, using action items as fallback`)
       tasksToCreate = meeting.action_items.map((item: any) => ({
         title: typeof item === 'string' ? item : item.title || item,
         description: typeof item === 'string' ? `From meeting: ${meeting.title}` : item.description || `From meeting: ${meeting.title}`,
-        project_id: projectId || null,
+        project_id: finalProjectId || null,
         assignee_id: null,
         status: 'todo' as const,
         priority: (typeof item === 'object' && item.priority) ? item.priority : 'medium' as const,

@@ -86,23 +86,32 @@ export class AIService {
 
   // Groq analysis (faster inference)
   async analyzeWithGroq(prompt: string, context?: string): Promise<any> {
-    const response = await this.groq.chat.completions.create({
-      model: AI_CONFIG.models.groq.chat,
-      messages: [
-        {
-          role: 'system',
-          content: context || 'You are an AI assistant helping with project management and task analysis.'
-        },
-        {
-          role: 'user',
-          content: prompt
-        }
-      ],
-      max_tokens: AI_CONFIG.limits.maxTokens,
-      temperature: 0.7,
-    })
+    try {
+      console.log(`🚀 Calling Groq AI (model: ${AI_CONFIG.models.groq.chat})...`)
+      const response = await this.groq.chat.completions.create({
+        model: AI_CONFIG.models.groq.chat,
+        messages: [
+          {
+            role: 'system',
+            content: context || 'You are an AI assistant helping with project management and task analysis.'
+          },
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        max_tokens: AI_CONFIG.limits.maxTokens,
+        temperature: 0.7,
+      })
 
-    return response.choices[0]?.message?.content
+      const result = response.choices[0]?.message?.content
+      console.log(`✅ Groq response received (${result?.length || 0} chars)`)
+      return result
+    } catch (error: any) {
+      console.error('❌ Groq API error:', error?.message || error)
+      console.error('   Full error:', error)
+      throw error
+    }
   }
 
   // Transcription with AssemblyAI (primary) and OpenAI Whisper (fallback)
