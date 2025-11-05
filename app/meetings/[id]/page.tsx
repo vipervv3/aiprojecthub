@@ -376,9 +376,19 @@ export default function MeetingDetailPage() {
         
         try {
           // Get auth token
-          const { data: { session } } = await supabase.auth.getSession()
+          const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+          
+          if (sessionError) {
+            console.error(`   ❌ Error getting session:`, sessionError.message)
+          }
+          
           if (session) {
-            console.log(`   🔑 Auth token available, calling link-tasks API...`)
+            console.log(`   🔑 Auth token available`)
+            console.log(`   Session user ID: ${session.user?.id || 'NONE'}`)
+            console.log(`   Access token length: ${session.access_token?.length || 0}`)
+            console.log(`   Token expires at: ${session.expires_at ? new Date(session.expires_at * 1000).toISOString() : 'NONE'}`)
+            console.log(`   Calling link-tasks API...`)
+            
             const linkResponse = await fetch(`/api/meetings/${actualMeetingId}/link-tasks`, {
               method: 'POST',
               headers: {
