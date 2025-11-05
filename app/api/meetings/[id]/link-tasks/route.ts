@@ -44,17 +44,70 @@ export async function POST(
 
     // Find tasks that should be linked to this meeting
     // Look for tasks with:
-    // 1. Same project_id as meeting
-    // 2. Tags containing the meeting ID
+    // 1. Same project_id as meeting (if meeting has project_id)
+    // 2. Tags containing the meeting ID OR meeting-generated tag
     // 3. is_ai_generated = true
     // 4. Created around the same time as the meeting
 
-    const { data: potentialTasks, error: tasksError } = await supabaseAdmin
-      .from('tasks')
-      .select('id, title, project_id, tags, created_at, is_ai_generated')
-      .eq('project_id', meeting.project_id || '')
-      .eq('is_ai_generated', true)
-      .contains('tags', [`meeting:${meetingId}`])
+    let potentialTasks: any[] = []
+    
+    if (meeting.project_id) {
+      // Search by project_id and tags
+      const { data: tasksByProject, error: projectTasksError } = await supabaseAdmin
+        .from('tasks')
+        .select('id, title, project_id, tags, created_at, is_ai_generated')
+        .eq('project_id', meeting.project_id)
+        .eq('is_ai_generated', true)
+        .contains('tags', ['meeting-generated'])
+
+      if (!projectTasksError && tasksByProject) {
+        // Filter by meeting ID in tags OR created around the same time as meeting
+        const { data: meetingData } = await supabaseAdmin
+          .from('meetings')
+          .select('created_at')
+          .eq('id', meetingId)
+          .single()
+
+        const meetingCreatedAt = meetingData?.created_at ? new Date(meetingData.created_at) : null
+        const timeWindow = 5 * 60 * 1000 // 5 minutes window
+
+        potentialTasks = tasksByProject.filter(task => {
+          // Check if tags contain meeting ID
+          const tags = task.tags || []
+          const hasMeetingTag = Array.isArray(tags) && tags.some((tag: string) => 
+            typeof tag === 'string' && tag.includes(`meeting:${meetingId}`)
+          )
+          
+          // Or check if created around the same time
+          let timeMatch = false
+          if (meetingCreatedAt && task.created_at) {
+            const taskCreatedAt = new Date(task.created_at)
+            const timeDiff = Math.abs(taskCreatedAt.getTime() - meetingCreatedAt.getTime())
+            timeMatch = timeDiff < timeWindow
+          }
+          
+          return hasMeetingTag || timeMatch
+        })
+      }
+    } else {
+      // If no project_id, search by tags only
+      const { data: tasksByTags, error: tagsTasksError } = await supabaseAdmin
+        .from('tasks')
+        .select('id, title, project_id, tags, created_at, is_ai_generated')
+        .eq('is_ai_generated', true)
+        .contains('tags', ['meeting-generated'])
+
+      if (!tagsTasksError && tasksByTags) {
+        potentialTasks = tasksByTags.filter(task => {
+          const tags = task.tags || []
+          return Array.isArray(tags) && tags.some((tag: string) => 
+            typeof tag === 'string' && tag.includes(`meeting:${meetingId}`)
+          )
+        })
+      }
+    }
+
+    const tasksError = null // No error if we got here
 
     if (tasksError) {
       console.error('Error finding tasks:', tasksError)
