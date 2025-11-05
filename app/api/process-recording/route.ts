@@ -424,6 +424,13 @@ Generate ONLY the title (no quotes, no JSON, no explanation, no prefix like "Tit
     
     if (tasksToCreate.length > 0) {
 
+      // ✅ CRITICAL: Log before inserting to verify project_id is set
+      console.log(`📋 About to insert ${tasksToCreate.length} tasks`)
+      console.log(`   Final projectId for tasks: ${finalProjectId || 'NULL - TASKS WILL NOT BE LINKED TO PROJECT!'}`)
+      tasksToCreate.forEach((task, idx) => {
+        console.log(`   Task ${idx + 1}: "${task.title}" → project_id: ${task.project_id || 'NULL'}`)
+      })
+      
       const { data: createdTasks, error: tasksError } = await supabase
         .from('tasks')
         .insert(tasksToCreate)
@@ -436,6 +443,7 @@ Generate ONLY the title (no quotes, no JSON, no explanation, no prefix like "Tit
         console.error('   Error details:', tasksError.details)
         console.error('   Error hint:', tasksError.hint)
         console.error('   Tasks to create:', JSON.stringify(tasksToCreate, null, 2))
+        console.error('   Final projectId was:', finalProjectId)
       } else {
         createdTasksCount = createdTasks?.length || 0
         console.log(`✅ Created ${createdTasksCount} tasks`)
@@ -443,6 +451,14 @@ Generate ONLY the title (no quotes, no JSON, no explanation, no prefix like "Tit
         if (createdTasks && createdTasks.length > 0) {
           console.log(`   Task IDs:`, createdTasks.map((t: any) => t.id).join(', '))
           console.log(`   Task project IDs:`, createdTasks.map((t: any) => t.project_id || 'NONE').join(', '))
+          
+          // ✅ VERIFY: Check if any tasks have project_id set
+          const tasksWithProject = createdTasks.filter((t: any) => t.project_id)
+          const tasksWithoutProject = createdTasks.filter((t: any) => !t.project_id)
+          console.log(`   ✅ ${tasksWithProject.length} tasks linked to project`)
+          if (tasksWithoutProject.length > 0) {
+            console.warn(`   ⚠️  ${tasksWithoutProject.length} tasks NOT linked to project:`, tasksWithoutProject.map((t: any) => t.id))
+          }
           
           // ✅ Link tasks to meeting via meeting_tasks table
           const meetingTaskLinks = createdTasks.map((task: any) => ({

@@ -100,9 +100,10 @@ async function pollTranscriptionInBackground(sessionId: string, transcriptId: st
         const supabase = createClient(supabaseUrl, supabaseServiceKey)
         
         // Get session to find user_id and projectId
+        // ✅ Select project_id column directly AND metadata as fallback
         const { data: session } = await supabase
           .from('recording_sessions')
-          .select('user_id, metadata')
+          .select('user_id, project_id, metadata')
           .eq('id', sessionId)
           .single()
 
@@ -120,7 +121,9 @@ async function pollTranscriptionInBackground(sessionId: string, transcriptId: st
 
         // ✅ Trigger AI processing automatically when transcription completes
         if (session?.user_id) {
-          const projectId = session.metadata?.projectId || null
+          // ✅ Get projectId from multiple sources: direct column → metadata → null
+          const projectId = (session as any).project_id || session.metadata?.projectId || null
+          console.log(`📁 Project ID sources: project_id column=${(session as any).project_id || 'none'}, metadata=${session.metadata?.projectId || 'none'}, final=${projectId || 'none'}`)
           
           console.log(`🤖 Auto-triggering AI processing (project: ${projectId || 'none'})`)
           
@@ -262,14 +265,16 @@ export async function PUT(request: NextRequest) {
 
       // Trigger AI processing asynchronously (don't wait for it)
       if (session?.user_id) {
-        // Get full session data to extract projectId from metadata
+        // ✅ Get full session data to extract projectId from both column and metadata
         const { data: fullSession } = await supabase
           .from('recording_sessions')
-          .select('metadata')
+          .select('project_id, metadata')
           .eq('id', sessionId)
           .single()
         
-        const projectId = fullSession?.metadata?.projectId || null
+        // ✅ Get projectId from multiple sources: direct column → metadata → null
+        const projectId = (fullSession as any)?.project_id || fullSession?.metadata?.projectId || null
+        console.log(`📁 Project ID sources: project_id column=${(fullSession as any)?.project_id || 'none'}, metadata=${fullSession?.metadata?.projectId || 'none'}, final=${projectId || 'none'}`)
         
         console.log(`🤖 Triggering AI processing for session: ${sessionId} (project: ${projectId || 'none'})`)
         fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/process-recording`, {
