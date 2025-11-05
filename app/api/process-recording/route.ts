@@ -243,25 +243,38 @@ Generate ONLY the title (no quotes, no JSON, no explanation, no prefix like "Tit
         .trim()
         .substring(0, 60) // Ensure max 60 chars
       
-      if (cleanedTitle && cleanedTitle.length >= 10 && cleanedTitle.length <= 60) {
-        // ✅ Less strict validation - only reject if title is ONLY a generic word
-        // Allow descriptive titles even if they contain generic words
+      // ✅ More lenient validation - accept most titles unless they're clearly broken
+      if (cleanedTitle && cleanedTitle.length >= 5 && cleanedTitle.length <= 100) {
         const genericWords = ['meeting', 'recording', 'call', 'conversation', 'discussion']
         const lowerTitle = cleanedTitle.toLowerCase().trim()
         
-        // Check if title is JUST a generic word (not descriptive)
-        const isOnlyGeneric = genericWords.includes(lowerTitle) || 
-          (lowerTitle.length < 15 && genericWords.some(g => lowerTitle === g || lowerTitle === `${g} ${new Date().getFullYear()}`))
+        // Only reject if title is EXACTLY a generic word (very strict)
+        const isExactlyGeneric = genericWords.includes(lowerTitle) && lowerTitle.length < 15
         
-        if (!isOnlyGeneric) {
+        if (!isExactlyGeneric) {
           meetingTitle = cleanedTitle
           console.log(`✅ Generated intelligent title: "${meetingTitle}"`)
           console.log(`   Title length: ${meetingTitle.length} chars`)
         } else {
-          console.warn(`⚠️ Title too generic (only generic word), using default: "${cleanedTitle}"`)
+          console.warn(`⚠️ Title is exactly generic word, using default: "${cleanedTitle}"`)
+        }
+      } else if (cleanedTitle && cleanedTitle.length > 0) {
+        // Even if length is wrong, try to use it if it's meaningful
+        if (cleanedTitle.length > 100) {
+          meetingTitle = cleanedTitle.substring(0, 100)
+          console.log(`✅ Using truncated title: "${meetingTitle}"`)
+        } else if (cleanedTitle.length >= 3) {
+          // Accept even very short titles if they're not generic
+          const lowerTitle = cleanedTitle.toLowerCase().trim()
+          if (!['meeting', 'recording', 'call'].includes(lowerTitle)) {
+            meetingTitle = cleanedTitle
+            console.log(`✅ Using short but valid title: "${meetingTitle}"`)
+          }
+        } else {
+          console.warn(`⚠️ Title too short (${cleanedTitle.length} chars), using default. Raw: "${generatedTitle}"`)
         }
       } else {
-        console.warn(`⚠️ Title invalid (length: ${cleanedTitle?.length || 0}), using default. Raw: "${generatedTitle}"`)
+        console.warn(`⚠️ Title empty or invalid, using default. Raw: "${generatedTitle}"`)
         console.warn(`   Cleaned title was: "${cleanedTitle}"`)
       }
     } catch (titleError: any) {
