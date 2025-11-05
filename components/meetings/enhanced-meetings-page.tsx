@@ -675,7 +675,7 @@ export default function EnhancedMeetingsPage() {
                   </div>
                   
                   <div className="flex items-center gap-2 sm:ml-4 flex-shrink-0">
-                    {/* View Details button - navigates to meeting detail page or processes orphaned recording */}
+                    {/* View Details button - always visible, navigates to meeting detail page or processes orphaned recording */}
                     <button
                       onClick={async (e) => {
                         e.stopPropagation()
@@ -683,7 +683,7 @@ export default function EnhancedMeetingsPage() {
                         if ((meeting as any)._isOrphaned && (meeting as any)._recordingSessionId) {
                           const sessionId = (meeting as any)._recordingSessionId
                           console.log('🔄 Processing orphaned recording:', sessionId)
-                          toast('Processing recording... This may take a moment.')
+                          toast.loading('Processing recording... This may take a moment.', { id: 'processing' })
                           
                           // Trigger AI processing
                           try {
@@ -697,27 +697,30 @@ export default function EnhancedMeetingsPage() {
                               })
                             })
                             
+                            const result = await response.json()
+                            
                             if (response.ok) {
-                              toast.success('Recording processed! Refreshing...')
-                              loadMeetings() // Reload to show the new meeting
+                              toast.success('Recording processed! Refreshing...', { id: 'processing' })
+                              setTimeout(() => loadMeetings(), 2000) // Reload to show the new meeting
                             } else {
-                              const error = await response.json()
-                              toast.error('Failed to process: ' + (error.error || 'Unknown error'))
+                              console.error('Processing error:', result)
+                              toast.error('Failed to process: ' + (result.error || result.details || 'Unknown error'), { id: 'processing' })
                             }
-                          } catch (error) {
+                          } catch (error: any) {
                             console.error('Error processing recording:', error)
-                            toast.error('Failed to process recording')
+                            toast.error('Failed to process recording: ' + (error.message || 'Network error'), { id: 'processing' })
                           }
                         } else {
                           // Normal meeting - navigate to detail page
                           router.push(`/meetings/${meeting.id}`)
                         }
                       }}
-                      className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-3 py-2 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900/50 flex items-center gap-2 text-xs sm:text-sm touch-manipulation"
+                      className="bg-blue-600 dark:bg-blue-500 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 flex items-center gap-2 text-xs sm:text-sm touch-manipulation font-medium shadow-sm"
                       title={(meeting as any)._isOrphaned ? "Process recording" : "View transcript and tasks"}
                     >
                       <FileText className="h-4 w-4" />
-                      <span className="hidden sm:inline">{(meeting as any)._isOrphaned ? "Process" : "Details"}</span>
+                      <span className="hidden sm:inline">{(meeting as any)._isOrphaned ? "Process" : "View Details"}</span>
+                      <span className="sm:hidden">{(meeting as any)._isOrphaned ? "Process" : "Details"}</span>
                     </button>
                     
                     {/* Delete button */}

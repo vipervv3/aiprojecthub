@@ -255,10 +255,20 @@ Generate ONLY the title text (no quotes, no JSON, no explanation, just the title
     const errorStack = error instanceof Error ? error.stack : String(error)
     console.error('❌ Error in process-recording API:', errorMessage)
     console.error('   Full error:', errorStack)
+    
+    // Provide more detailed error information
+    let errorDetails = errorMessage
+    if (error instanceof Error && error.stack) {
+      // Include first few lines of stack trace for debugging
+      const stackLines = error.stack.split('\n').slice(0, 3).join('\n')
+      errorDetails = `${errorMessage}\n\nStack:\n${stackLines}`
+    }
+    
     return NextResponse.json(
       {
         error: 'Failed to process recording',
-        details: errorMessage,
+        details: errorDetails,
+        message: errorMessage, // Also include in message field for easier access
       },
       { status: 500 }
     )

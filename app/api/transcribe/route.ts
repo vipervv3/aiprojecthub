@@ -118,29 +118,40 @@ async function pollTranscriptionInBackground(sessionId: string, transcriptId: st
 
         console.log(`💾 Transcription saved to database`)
 
-        // ✅ Trigger AI processing
+        // ✅ Trigger AI processing automatically when transcription completes
         if (session?.user_id) {
           const projectId = session.metadata?.projectId || null
           
-          console.log(`🤖 Triggering AI processing (project: ${projectId || 'none'})`)
+          console.log(`🤖 Auto-triggering AI processing (project: ${projectId || 'none'})`)
           
           const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-          const response = await fetch(`${appUrl}/api/process-recording`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              sessionId,
-              userId: session.user_id,
-              projectId
-            })
-          })
+          
+          // Use setTimeout to ensure transcription is fully saved before processing
+          setTimeout(async () => {
+            try {
+              const response = await fetch(`${appUrl}/api/process-recording`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  sessionId,
+                  userId: session.user_id,
+                  projectId
+                })
+              })
 
-          if (response.ok) {
-            console.log(`🎉 AI processing triggered successfully!`)
-          } else {
-            const errorData = await response.json()
-            console.error(`❌ AI processing failed:`, errorData)
-          }
+              if (response.ok) {
+                const result = await response.json()
+                console.log(`🎉 AI processing completed successfully!`, result.message)
+              } else {
+                const errorData = await response.json()
+                console.error(`❌ AI processing failed:`, errorData)
+                // Don't throw - this is background processing
+              }
+            } catch (fetchError) {
+              console.error(`❌ Error triggering AI processing:`, fetchError)
+              // Don't throw - this is background processing
+            }
+          }, 1000) // Wait 1 second to ensure DB is updated
         }
 
         return // Done!
