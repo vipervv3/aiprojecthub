@@ -202,8 +202,48 @@ export default function EnhancedMeetingsPage() {
   useEffect(() => {
     if (user) {
       loadMeetings()
+      
+      // ✅ Client-side polling for transcriptions in progress
+      const pollInterval = setInterval(async () => {
+        // Only poll if we have recordings that are still transcribing
+        const transcribingRecordings = meetings.filter((m: any) => 
+          m._transcriptionStatus === 'pending' || m._transcriptionStatus === 'processing'
+        )
+        
+        if (transcribingRecordings.length > 0) {
+          console.log(`🔄 Checking ${transcribingRecordings.length} recording(s) for transcription updates...`)
+          
+          // Check each recording's transcription status
+          for (const meeting of transcribingRecordings) {
+            if (meeting._recordingSessionId) {
+              try {
+                const response = await fetch('/api/check-transcription', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    sessionId: meeting._recordingSessionId
+                  })
+                })
+                
+                if (response.ok) {
+                  const data = await response.json()
+                  if (data.status === 'completed') {
+                    console.log(`✅ Transcription completed for ${meeting._recordingSessionId}`)
+                    // Reload meetings to show updated status
+                    setTimeout(() => loadMeetings(), 1000)
+                  }
+                }
+              } catch (error) {
+                console.error(`Error checking transcription for ${meeting._recordingSessionId}:`, error)
+              }
+            }
+          }
+        }
+      }, 15000) // Poll every 15 seconds
+      
+      return () => clearInterval(pollInterval)
     }
-  }, [user])
+  }, [user, meetings])
 
   const loadMeetings = async () => {
     try {
