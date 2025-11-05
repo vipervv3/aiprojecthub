@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/app/providers'
+import { supabase } from '@/lib/supabase'
 import { 
   BarChart3, 
   TrendingUp, 
@@ -177,10 +178,16 @@ export default function SimpleAnalyticsPage() {
     try {
       setLoadingData(true)
       
-      // Fetch real data
+      // Get auth token for API calls
+      const { data: { session } } = await supabase.auth.getSession()
+      const authHeaders = session?.access_token 
+        ? { 'Authorization': `Bearer ${session.access_token}` }
+        : {}
+      
+      // Fetch real data (API now uses auth token, not userId param)
       const [projectsRes, tasksRes] = await Promise.all([
-        fetch(`/api/projects?userId=${user?.id}`),
-        fetch(`/api/tasks?userId=${user?.id}`)
+        fetch('/api/projects', { headers: authHeaders }),
+        fetch('/api/tasks', { headers: authHeaders })
       ])
 
       const projectsData = projectsRes.ok ? await projectsRes.json() : []

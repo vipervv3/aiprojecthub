@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/app/providers'
+import { supabase } from '@/lib/supabase'
 import { 
   Brain, 
   TrendingUp,
@@ -148,11 +149,17 @@ export default function SimpleAIInsightsPage() {
     try {
       setLoadingData(true)
       
-      // Fetch real tasks and projects
+      // Get auth token for API calls
+      const { data: { session } } = await supabase.auth.getSession()
+      const authHeaders = session?.access_token 
+        ? { 'Authorization': `Bearer ${session.access_token}` }
+        : {}
+      
+      // Fetch real tasks and projects (API now uses auth token, not userId param)
       const [tasksRes, projectsRes, insightsRes] = await Promise.all([
-        fetch(`/api/tasks?userId=${user?.id}`),
-        fetch(`/api/projects?userId=${user?.id}`),
-        fetch(`/api/ai-insights?userId=${user?.id}`)
+        fetch('/api/tasks', { headers: authHeaders }),
+        fetch('/api/projects', { headers: authHeaders }),
+        fetch(`/api/ai-insights?userId=${user?.id}`, { headers: authHeaders })
       ])
 
       const tasksData = tasksRes.ok ? await tasksRes.json() : []
