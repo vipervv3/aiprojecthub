@@ -92,6 +92,7 @@ export async function POST(request: NextRequest) {
         completed: false
       })),
       attendees: [],
+      participants: [],
       meeting_type: 'regular' as const,
       ai_insights: {
         confidence: taskExtraction.confidence,
@@ -165,6 +166,24 @@ export async function POST(request: NextRequest) {
       } else {
         createdTasksCount = createdTasks?.length || 0
         console.log(`✅ Created ${createdTasksCount} tasks`)
+        
+        // ✅ Link tasks to meeting via meeting_tasks table
+        if (createdTasks && createdTasks.length > 0) {
+          const meetingTaskLinks = createdTasks.map((task: any) => ({
+            meeting_id: meeting.id,
+            task_id: task.id
+          }))
+          
+          const { error: linkError } = await supabase
+            .from('meeting_tasks')
+            .insert(meetingTaskLinks)
+          
+          if (linkError) {
+            console.warn('Error linking tasks to meeting:', linkError)
+          } else {
+            console.log(`✅ Linked ${createdTasks.length} tasks to meeting ${meeting.id}`)
+          }
+        }
       }
     }
 

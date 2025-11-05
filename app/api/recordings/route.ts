@@ -5,6 +5,8 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY! || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
 export async function POST(request: NextRequest) {
+  let uploadedFilePath: string | null = null
+  
   try {
     const formData = await request.formData()
     const audioFile = formData.get('audio') as File
@@ -13,43 +15,101 @@ export async function POST(request: NextRequest) {
     const userId = formData.get('userId') as string
     const projectId = formData.get('projectId') as string | null
 
-    if (!audioFile || !title || !userId) {
+    // ✅ Bulletproof validation
+    if (!audioFile) {
       return NextResponse.json(
-        { error: 'Missing required fields: audio, title, or userId' },
+        { error: 'Missing audio file' },
         { status: 400 }
       )
     }
 
+    if (!title || title.trim().length === 0) {
+      return NextResponse.json(
+        { error: 'Title is required' },
+        { status: 400 }
+      )
+    }
+
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'User ID is required' },
+        { status: 400 }
+      )
+    }
+
+    // Validate file size (max 50MB)
+    const maxSize = 50 * 1024 * 1024 // 50MB
+    if (audioFile.size > maxSize) {
+      return NextResponse.json(
+        { error: 'File too large. Maximum size is 50MB' },
+        { status: 400 }
+      )
+    }
+
+    // Validate file type
+    if (!audioFile.type.includes('audio') && !audioFile.name.endsWith('.webm')) {
+      console.warn('⚠️ Unexpected file type:', audioFile.type, audioFile.name)
+      // Continue anyway - some browsers may not set MIME type correctly
+    }
+
     console.log(`📼 Recording upload - Project: ${projectId || 'none'}`)
+    console.log(`   File size: ${(audioFile.size / 1024 / 1024).toFixed(2)} MB`)
+    console.log(`   Duration: ${duration}s`)
 
     // Create Supabase client with service role
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-    // Generate unique filename
+    // Generate unique filename with retry logic
     const timestamp = Date.now()
     const fileName = `recording_${timestamp}.webm`
     const filePath = `recordings/${userId}/${fileName}`
+    uploadedFilePath = filePath // Track for cleanup
 
-    // Upload audio file to Supabase Storage
-    const { data: uploadData, error: uploadError } = await supabase.storage
-      .from('meeting-recordings')
-      .upload(filePath, audioFile, {
-        contentType: 'audio/webm',
-        upsert: false,
-      })
+    // Upload audio file to Supabase Storage with retry
+    let uploadData = null
+    let uploadError = null
+    const maxRetries = 3
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      const { data, error } = await supabase.storage
+        .from('meeting-recordings')
+        .upload(filePath, audioFile, {
+          contentType: 'audio/webm',
+          upsert: false,
+        })
+      
+      if (!error) {
+        uploadData = data
+        break
+      }
+      
+      uploadError = error
+      console.warn(`Upload attempt ${attempt}/${maxRetries} failed:`, error.message)
+      
+      if (attempt < maxRetries) {
+        // Wait before retry (exponential backoff)
+        await new Promise(resolve => setTimeout(resolve, 1000 * attempt))
+        // Generate new filename for retry
+        const retryFileName = `recording_${Date.now()}.webm`
+        uploadedFilePath = `recordings/${userId}/${retryFileName}`
+      }
+    }
 
-    if (uploadError) {
-      console.error('Upload error:', uploadError)
+    if (uploadError || !uploadData) {
+      console.error('Upload error after retries:', uploadError)
       return NextResponse.json(
-        { error: 'Failed to upload recording', details: uploadError.message },
+        { error: 'Failed to upload recording after multiple attempts', details: uploadError?.message || 'Unknown error' },
         { status: 500 }
       )
     }
+    
+    console.log(`✅ File uploaded successfully: ${uploadedFilePath}`)
 
-    // Get public URL
+    // Get public URL (use the final uploaded path)
+    const finalFilePath = uploadedFilePath || filePath
     const { data: urlData } = supabase.storage
       .from('meeting-recordings')
-      .getPublicUrl(filePath)
+      .getPublicUrl(finalFilePath)
 
     const publicUrl = urlData.publicUrl
 
@@ -59,7 +119,7 @@ export async function POST(request: NextRequest) {
       .insert({
         user_id: userId,
         title,
-        file_path: filePath,
+        file_path: finalFilePath,
         file_size: audioFile.size,
         duration,
         transcription_status: 'pending',
@@ -73,8 +133,15 @@ export async function POST(request: NextRequest) {
 
     if (dbError) {
       console.error('Database error:', dbError)
-      // Try to clean up uploaded file
-      await supabase.storage.from('meeting-recordings').remove([filePath])
+      // ✅ Clean up uploaded file if database insert fails
+      if (uploadedFilePath) {
+        try {
+          await supabase.storage.from('meeting-recordings').remove([uploadedFilePath])
+          console.log('✅ Cleaned up uploaded file after database error')
+        } catch (cleanupError) {
+          console.error('⚠️ Failed to clean up file:', cleanupError)
+        }
+      }
       return NextResponse.json(
         { error: 'Failed to create recording session', details: dbError.message },
         { status: 500 }

@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import AppLayout from '@/components/layout/app-layout'
 import RequireAuth from '@/components/auth/require-auth'
-import { ArrowLeft, Calendar, Clock, FileText, CheckSquare, Loader, AlertCircle, Trash2, Edit2, RefreshCw } from 'lucide-react'
+import { ArrowLeft, Calendar, Clock, FileText, CheckSquare, Loader, AlertCircle, Trash2, Edit2, RefreshCw, Sparkles } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 
 interface Meeting {
@@ -15,9 +15,14 @@ interface Meeting {
   scheduled_at: string
   duration?: number
   summary?: string
-  action_items?: string[]
+  action_items?: any[]
   ai_insights?: any
   created_at: string
+  projects?: {
+    id: string
+    name: string
+    status: string
+  }
 }
 
 interface RecordingSession {
@@ -64,7 +69,7 @@ export default function MeetingDetailPage() {
         throw new Error('Database connection not available')
       }
 
-      // Load meeting with recording session joined
+      // Load meeting with recording session and project joined
       console.log('📋 Loading meeting:', meetingId)
       const { data: meetingData, error: meetingError } = await supabase
         .from('meetings')
@@ -78,7 +83,13 @@ export default function MeetingDetailPage() {
             transcription_confidence,
             duration,
             created_at,
-            updated_at
+            updated_at,
+            metadata
+          ),
+          projects (
+            id,
+            name,
+            status
           )
         `)
         .eq('id', meetingId)
@@ -321,9 +332,21 @@ export default function MeetingDetailPage() {
             </div>
           </div>
 
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100 mb-3 sm:mb-4">{meeting.title}</h1>
+          <div className="flex items-start justify-between gap-4 mb-3 sm:mb-4">
+            <div className="flex-1">
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">{meeting.title}</h1>
+              {meeting.ai_insights && (
+                <div className="flex items-center gap-2 mb-2">
+                  <Sparkles className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                  <span className="text-xs sm:text-sm text-purple-600 dark:text-purple-400 font-medium">
+                    AI-Generated Title • {meeting.ai_insights.tasks_extracted || 0} tasks extracted
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
           
-          <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6 text-sm text-gray-600 dark:text-gray-400">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6 text-sm text-gray-600 dark:text-gray-400 mb-4">
             <div className="flex items-center gap-2">
               <Calendar className="h-4 w-4" />
               <span>{formatDate(meeting.scheduled_at)}</span>
@@ -334,7 +357,23 @@ export default function MeetingDetailPage() {
                 <span>{meeting.duration} minutes</span>
               </div>
             )}
+            {recording?.transcription_confidence && (
+              <div className="flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                <span>Transcription: {Math.round(recording.transcription_confidence * 100)}% confidence</span>
+              </div>
+            )}
           </div>
+          
+          {/* Project Context */}
+          {meeting.projects && (
+            <div className="mb-4">
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded-lg text-sm font-medium">
+                <span>📁</span>
+                <span>Project: {meeting.projects.name || 'Unknown'}</span>
+              </div>
+            </div>
+          )}
 
           {meeting.description && (
             <p className="text-gray-600 dark:text-gray-400 mt-4">{meeting.description}</p>
@@ -412,14 +451,40 @@ export default function MeetingDetailPage() {
             {/* Action Items */}
             {meeting.action_items && meeting.action_items.length > 0 && (
               <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 sm:p-6">
-                <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Action Items</h2>
-                <ul className="space-y-2">
-                  {meeting.action_items.map((item: string, index: number) => (
-                    <li key={index} className="flex items-start gap-2">
-                      <CheckSquare className="h-4 w-4 text-green-600 dark:text-green-400 mt-1 flex-shrink-0" />
-                      <span className="text-gray-700 dark:text-gray-300 text-sm sm:text-base">{item}</span>
-                    </li>
-                  ))}
+                <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
+                  <CheckSquare className="h-5 w-5 text-green-600 dark:text-green-400" />
+                  Action Items ({meeting.action_items.length})
+                </h2>
+                <ul className="space-y-3">
+                  {meeting.action_items.map((item: any, index: number) => {
+                    const title = typeof item === 'string' ? item : item.title || item.description || 'Untitled action item'
+                    const description = typeof item === 'object' && item.description ? item.description : null
+                    const priority = typeof item === 'object' && item.priority ? item.priority : null
+                    const completed = typeof item === 'object' && item.completed !== undefined ? item.completed : false
+                    
+                    return (
+                      <li key={index} className={`flex items-start gap-3 p-3 rounded-lg ${completed ? 'bg-gray-50 dark:bg-gray-700/50 opacity-75' : 'bg-green-50 dark:bg-green-900/20'}`}>
+                        <CheckSquare className={`h-5 w-5 mt-0.5 flex-shrink-0 ${completed ? 'text-green-600 dark:text-green-400' : 'text-gray-400 dark:text-gray-500'}`} />
+                        <div className="flex-1">
+                          <div className="flex items-start justify-between gap-2">
+                            <p className={`text-sm sm:text-base font-medium ${completed ? 'line-through text-gray-500 dark:text-gray-400' : 'text-gray-900 dark:text-gray-100'}`}>
+                              {title}
+                            </p>
+                            {priority && (
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium flex-shrink-0 ${getPriorityColor(priority)}`}>
+                                {priority}
+                              </span>
+                            )}
+                          </div>
+                          {description && (
+                            <p className={`text-sm text-gray-600 dark:text-gray-400 mt-1 ${completed ? 'line-through' : ''}`}>
+                              {description}
+                            </p>
+                          )}
+                        </div>
+                      </li>
+                    )
+                  })}
                 </ul>
               </div>
             )}
