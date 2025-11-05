@@ -521,8 +521,26 @@ Generate ONLY the title (no quotes, no JSON, no explanation, no prefix like "Tit
             console.log(`✅ Successfully linked ${insertedLinks?.length || 0} tasks to meeting ${meeting.id}`)
             if (insertedLinks && insertedLinks.length > 0) {
               console.log(`   Linked task IDs:`, insertedLinks.map((l: any) => l.task_id).join(', '))
+              console.log(`   Meeting ID: ${meeting.id}`)
             } else {
               console.warn(`   ⚠️  No links returned from insert (may indicate RLS blocking)`)
+              console.warn(`   Attempting individual inserts as fallback...`)
+              
+              // ✅ Fallback: Try individual inserts if bulk insert returns empty
+              let successCount = 0
+              for (const link of meetingTaskLinks) {
+                const { error: singleLinkError } = await supabase
+                  .from('meeting_tasks')
+                  .insert(link)
+                
+                if (singleLinkError) {
+                  console.error(`   ❌ Failed to link task ${link.task_id}:`, singleLinkError.message)
+                } else {
+                  successCount++
+                  console.log(`   ✅ Linked task ${link.task_id} to meeting ${link.meeting_id}`)
+                }
+              }
+              console.log(`📊 Individual link fallback: ${successCount}/${meetingTaskLinks.length} successful`)
             }
           }
         } else {
