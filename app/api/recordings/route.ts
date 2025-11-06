@@ -51,13 +51,21 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Validate file size (max 50MB)
-    const maxSize = 50 * 1024 * 1024 // 50MB
+    // ✅ Support large recordings (30+ minutes to 1+ hour)
+    // Supabase storage supports up to 500MB per file
+    // For very large files, client should use direct upload
+    const maxSize = 500 * 1024 * 1024 // 500MB (Supabase storage limit)
     if (audioFile.size > maxSize) {
       return NextResponse.json(
-        { error: 'File too large. Maximum size is 50MB' },
+        { error: 'File too large. Maximum size is 500MB. For very large files, use direct upload.' },
         { status: 400 }
       )
+    }
+    
+    // Warn if file is very large (but still allow it)
+    const fileSizeMB = audioFile.size / 1024 / 1024
+    if (fileSizeMB > 100) {
+      console.warn(`⚠️ Large file detected: ${fileSizeMB.toFixed(2)}MB. Consider using direct upload for better reliability.`)
     }
 
     // Validate file type

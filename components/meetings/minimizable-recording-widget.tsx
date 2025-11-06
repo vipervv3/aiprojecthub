@@ -5,6 +5,7 @@ import { X, Mic, MicOff, Square, Play, Pause, Upload, Minimize2, Maximize2, Spar
 import { toast } from 'react-hot-toast'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/app/providers'
+import { recordingBackupService } from '@/lib/services/recording-backup-service'
 
 interface MinimizableRecordingWidgetProps {
   isOpen: boolean
@@ -82,6 +83,10 @@ export default function MinimizableRecordingWidget({
   const timerRef = useRef<NodeJS.Timeout | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const audioChunksRef = useRef<BlobPart[]>([])
+  const wakeLockRef = useRef<WakeLockSentinel | null>(null)
+  const sessionIdRef = useRef<string | null>(null)
+  const chunkIndexRef = useRef<number>(0)
+  const chunksBackedUpRef = useRef<number>(0)
 
   // Load projects on mount and when modal opens
   useEffect(() => {
@@ -138,12 +143,69 @@ export default function MinimizableRecordingWidget({
   }, [isRecording, isPaused])
 
   useEffect(() => {
+    // Initialize backup service
+    recordingBackupService.init().catch(err => {
+      console.warn('Failed to initialize backup service:', err)
+    })
+
     return () => {
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop())
       }
+      // Release wake lock on unmount
+      if (wakeLockRef.current) {
+        wakeLockRef.current.release().catch(() => {})
+      }
     }
   }, [])
+
+  // ✅ Warn before leaving page with unsaved recording
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isRecording) {
+        e.preventDefault()
+        e.returnValue = 'You are currently recording. Are you sure you want to leave?'
+        return e.returnValue
+      }
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+    }
+  }, [isRecording])
+
+  // ✅ Request wake lock to prevent screen sleep (mobile support)
+  const requestWakeLock = async () => {
+    try {
+      if ('wakeLock' in navigator) {
+        const wakeLock = await (navigator as any).wakeLock.request('screen')
+        wakeLockRef.current = wakeLock
+        
+        wakeLock.addEventListener('release', () => {
+          console.log('Wake lock released (screen can sleep now)')
+        })
+        
+        console.log('✅ Wake lock acquired - screen will stay awake')
+      }
+    } catch (err) {
+      console.warn('Wake Lock API not supported or failed:', err)
+      // Not critical, continue recording
+    }
+  }
+
+  // Release wake lock
+  const releaseWakeLock = async () => {
+    if (wakeLockRef.current) {
+      try {
+        await wakeLockRef.current.release()
+        wakeLockRef.current = null
+        console.log('✅ Wake lock released')
+      } catch (err) {
+        console.warn('Failed to release wake lock:', err)
+      }
+    }
+  }
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
@@ -159,6 +221,15 @@ export default function MinimizableRecordingWidget({
     }
 
     try {
+      // ✅ Initialize backup service
+      await recordingBackupService.init()
+      
+      // ✅ Generate session ID for backup tracking
+      const newSessionId = `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+      sessionIdRef.current = newSessionId
+      chunkIndexRef.current = 0
+      chunksBackedUpRef.current = 0
+
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       streamRef.current = stream
 
@@ -166,16 +237,45 @@ export default function MinimizableRecordingWidget({
       mediaRecorderRef.current = mediaRecorder
       audioChunksRef.current = []
 
-      mediaRecorder.ondataavailable = (event) => {
+      // ✅ Request wake lock to prevent screen sleep
+      await requestWakeLock()
+
+      // ✅ Save chunks to IndexedDB for backup (prevents data loss)
+      mediaRecorder.ondataavailable = async (event) => {
         if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data)
+          const chunk = event.data
+          audioChunksRef.current.push(chunk)
+          
+          // 💾 BACKUP: Save chunk to IndexedDB immediately (prevents data loss)
+          const currentChunkIndex = chunkIndexRef.current
+          chunkIndexRef.current++
+          
+          try {
+            await recordingBackupService.saveChunk({
+              sessionId: newSessionId,
+              chunkIndex: currentChunkIndex,
+              blob: chunk,
+              timestamp: Date.now(),
+              uploaded: false
+            })
+            chunksBackedUpRef.current++
+            console.log(`💾 Chunk ${currentChunkIndex} backed up to IndexedDB`)
+          } catch (backupError) {
+            console.error('Failed to backup chunk to IndexedDB:', backupError)
+            // Continue even if backup fails
+          }
         }
       }
 
-      mediaRecorder.onstop = () => {
+      mediaRecorder.onstop = async () => {
+        // ✅ Release wake lock
+        await releaseWakeLock()
+        
         const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' })
         setAudioBlob(blob)
         setAudioUrl(URL.createObjectURL(blob))
+        
+        console.log(`✅ Recording stopped. ${chunksBackedUpRef.current} chunks backed up to IndexedDB`)
         
         // Automatically start upload and processing
         // Small delay to ensure state is updated
@@ -184,23 +284,31 @@ export default function MinimizableRecordingWidget({
         }, 100)
       }
 
-      // Request data every second for real-time chunking (optional)
+      // ✅ Request data every second for real-time chunking
+      // This is important for long recordings (30+ minutes to 1+ hour) to prevent memory issues
+      // Chunks are collected in memory AND backed up to IndexedDB for safety
       mediaRecorder.start(1000)
       setIsRecording(true)
       setRecordingTime(0)
-      toast.success('🎙️ Recording started - Click anywhere outside to minimize!', {
+      toast.success('🎙️ Recording started - Protected against data loss!', {
         duration: 4000,
+      })
+      toast('💾 Chunks are being saved automatically - safe from crashes & battery death', {
+        icon: '💾',
+        duration: 5000,
       })
     } catch (error) {
       console.error('Error starting recording:', error)
       toast.error('Failed to start recording. Please check microphone permissions.')
+      await releaseWakeLock()
     }
   }
 
-  const stopRecording = () => {
+  const stopRecording = async () => {
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop()
       setIsRecording(false)
+      // Wake lock will be released in onstop handler
       setIsPaused(false)
       
       if (streamRef.current) {
@@ -281,9 +389,16 @@ export default function MinimizableRecordingWidget({
       formData.append('userId', user.id)
       formData.append('projectId', selectedProjectId)
       
-      // ✅ For large files (>20MB), upload directly to Supabase Storage to avoid Next.js body size limits
+      // ✅ For large files (>4MB), upload directly to Supabase Storage to avoid Next.js body size limits
+      // Vercel has a 4.5MB body size limit, so we use 4MB as threshold for safety
+      // This is especially important for long recordings (30+ minutes to 1+ hour)
       const fileSizeMB = blob.size / 1024 / 1024
-      const useDirectUpload = fileSizeMB > 20
+      const useDirectUpload = fileSizeMB > 4
+      
+      // Log file size for long recordings
+      if (fileSizeMB > 50) {
+        console.log(`📊 Large recording detected: ${fileSizeMB.toFixed(2)}MB (likely ${Math.round(recordingTime / 60)} minutes)`)
+      }
       
       console.log(`📤 Uploading ${useDirectUpload ? 'directly to Supabase' : 'via /api/recordings'}...`)
       console.log('   File size:', blob.size, 'bytes (', fileSizeMB.toFixed(2), 'MB)')
@@ -314,12 +429,25 @@ export default function MinimizableRecordingWidget({
         
         console.log('✅ File uploaded directly to Supabase Storage')
         
-        // Get public URL
-        const { data: urlData } = supabase.storage
+        // Get signed URL for transcription (valid for 1 hour)
+        // AssemblyAI needs a publicly accessible URL
+        const { data: signedUrlData, error: signedUrlError } = await supabase.storage
           .from('meeting-recordings')
-          .getPublicUrl(filePath)
+          .createSignedUrl(filePath, 3600) // 1 hour expiry
         
-        const publicUrl = urlData.publicUrl
+        let publicUrl
+        if (signedUrlError || !signedUrlData) {
+          console.warn('⚠️ Failed to create signed URL, trying public URL:', signedUrlError)
+          // Fallback to public URL if bucket is public
+          const { data: urlData } = supabase.storage
+            .from('meeting-recordings')
+            .getPublicUrl(filePath)
+          publicUrl = urlData.publicUrl
+        } else {
+          publicUrl = signedUrlData.signedUrl
+        }
+        
+        console.log('✅ Generated URL for transcription:', publicUrl.substring(0, 100) + '...')
         
         // Create recording session via API (metadata only, no file)
         const tempTitle = `Recording ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`
@@ -357,6 +485,7 @@ export default function MinimizableRecordingWidget({
         console.log('📡 Upload response status:', response.status)
         console.log('   Response OK:', response.ok)
         
+        let result
         try {
           result = await response.json()
           console.log('📡 Upload response data:', result)
@@ -366,23 +495,94 @@ export default function MinimizableRecordingWidget({
           console.error('❌ Failed to parse response as JSON:', parseError)
           console.error('   Raw response:', text.substring(0, 500))
           
+          // ✅ If 413 error, retry with direct upload
           if (response.status === 413) {
-            throw new Error('File too large for API route. Please try recording again - the system will use direct upload for large files.')
+            console.log('⚠️ File too large for API route (413). Retrying with direct upload...')
+            // Fall through to retry with direct upload
+            result = null
+          } else {
+            throw new Error(`Server error (${response.status}): ${text.substring(0, 200)}`)
           }
-          
-          throw new Error(`Server error (${response.status}): ${text.substring(0, 200)}`)
         }
 
-        if (!response.ok) {
-          console.error('❌ Upload failed with status:', response.status)
-          console.error('   Error details:', result)
-          
-          if (response.status === 413) {
-            throw new Error('File too large. Please try recording again - large files will be handled automatically.')
+        // ✅ If API route failed with 413 or other error, retry with direct upload
+        if (!response.ok || !result) {
+          if (response.status === 413 || !result) {
+            console.log('⚠️ Upload failed with API route. Retrying with direct Supabase upload...')
+            console.log('   File size:', fileSizeMB.toFixed(2), 'MB')
+            
+            // Retry with direct upload
+            const timestamp = Date.now()
+            const fileName = `recording_${timestamp}.webm`
+            const filePath = `recordings/${user.id}/${fileName}`
+            
+            // Upload directly to Supabase Storage
+            const { data: uploadData, error: uploadError } = await supabase.storage
+              .from('meeting-recordings')
+              .upload(filePath, blob, {
+                contentType: 'audio/webm',
+                upsert: false,
+              })
+            
+            if (uploadError) {
+              console.error('❌ Direct upload failed:', uploadError)
+              throw new Error(`Upload failed: ${uploadError.message}`)
+            }
+            
+            console.log('✅ File uploaded directly to Supabase Storage')
+            
+            // Get signed URL for transcription (valid for 1 hour)
+            // AssemblyAI needs a publicly accessible URL
+            const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+              .from('meeting-recordings')
+              .createSignedUrl(filePath, 3600) // 1 hour expiry
+            
+            let publicUrl
+            if (signedUrlError || !signedUrlData) {
+              console.warn('⚠️ Failed to create signed URL, trying public URL:', signedUrlError)
+              // Fallback to public URL if bucket is public
+              const { data: urlData } = supabase.storage
+                .from('meeting-recordings')
+                .getPublicUrl(filePath)
+              publicUrl = urlData.publicUrl
+            } else {
+              publicUrl = signedUrlData.signedUrl
+            }
+            
+            console.log('✅ Generated URL for transcription:', publicUrl.substring(0, 100) + '...')
+            
+            // Create recording session via API (metadata only, no file)
+            const sessionResponse = await fetch('/api/recordings/create-session', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                title: tempTitle,
+                duration: recordingTime,
+                userId: user.id,
+                projectId: selectedProjectId,
+                filePath: filePath,
+                fileSize: blob.size,
+                recordingUrl: publicUrl,
+              }),
+            })
+            
+            if (!sessionResponse.ok) {
+              const sessionError = await sessionResponse.json()
+              console.error('❌ Failed to create session:', sessionError)
+              // Try to clean up uploaded file
+              await supabase.storage.from('meeting-recordings').remove([filePath])
+              throw new Error(`Failed to create recording session: ${sessionError.error || 'Unknown error'}`)
+            }
+            
+            result = await sessionResponse.json()
+            console.log('✅ Recording session created via direct upload:', result.session.id)
+          } else {
+            console.error('❌ Upload failed with status:', response.status)
+            console.error('   Error details:', result)
+            
+            const errorMessage = result?.error || result?.details || result?.message || `Upload failed with status ${response.status}`
+            throw new Error(errorMessage)
           }
-          
-          const errorMessage = result?.error || result?.details || result?.message || `Upload failed with status ${response.status}`
-          throw new Error(errorMessage)
         }
 
         console.log('✅ Recording uploaded:', result.session.id)
@@ -423,7 +623,14 @@ export default function MinimizableRecordingWidget({
         toast.error('Upload succeeded but transcription cannot start - no URL')
       }
 
-      toast.success('✅ Recording uploaded! AI processing will begin shortly.')
+      // Show appropriate message based on file size
+      if (fileSizeMB > 50) {
+        toast.success(`✅ Large recording uploaded (${fileSizeMB.toFixed(1)}MB)! Transcription and AI processing will begin shortly.`, {
+          duration: 6000,
+        })
+      } else {
+        toast.success('✅ Recording uploaded! AI processing will begin shortly.')
+      }
       setProcessingStatus('AI processing in progress...')
       
       // ✅ Start client-side polling to show recording in list and track processing
