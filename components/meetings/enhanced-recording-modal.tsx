@@ -246,6 +246,9 @@ export default function EnhancedRecordingModal({
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       streamRef.current = stream
 
+      // Detect mobile device
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
+      
       // Generate session ID NOW (before recording starts)
       const newSessionId = crypto.randomUUID()
       setSessionId(newSessionId)
@@ -253,8 +256,24 @@ export default function EnhancedRecordingModal({
       uploadedChunksRef.current = []
       setChunksUploaded(0)
 
+      // Determine best mimeType for device
+      let mimeType = 'audio/webm'
+      if (isMobile) {
+        // Check for supported mimeTypes on mobile
+        if (MediaRecorder.isTypeSupported('audio/webm')) {
+          mimeType = 'audio/webm'
+        } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+          mimeType = 'audio/mp4'
+        } else if (MediaRecorder.isTypeSupported('audio/mpeg')) {
+          mimeType = 'audio/mpeg'
+        } else {
+          // Fallback to default
+          mimeType = ''
+        }
+      }
+
       const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: 'audio/webm',
+        mimeType: mimeType || undefined,
       })
       mediaRecorderRef.current = mediaRecorder
       chunksRef.current = []
@@ -354,15 +373,16 @@ export default function EnhancedRecordingModal({
         handleUpload(blob, currentSessionId)
       }
 
-      // Start recording with timeslice for chunked data (10 seconds)
-      mediaRecorder.start(10000) // Capture and trigger ondataavailable every 10 seconds
-      setIsRecording(true)
-      setRecordingTime(0)
-      
-      // Request wake lock to prevent screen sleep
+      // Request wake lock for mobile (prevents screen sleep)
       await requestWakeLock()
       
-      toast.success('🎙️ Recording started - Auto-saving every 10 seconds', {
+      // Start recording with timeslice for chunked data (10 seconds for mobile reliability)
+      const timeslice = isMobile ? 10000 : 10000 // 10 seconds for both mobile and desktop
+      mediaRecorder.start(timeslice) // Capture and trigger ondataavailable every 10 seconds
+      
+      setIsRecording(true)
+      setRecordingTime(0)
+      toast.success('Recording started' + (isMobile ? ' 📱' : '') + ' - Auto-saving every 10 seconds', {
         duration: 5000,
       })
       toast('💾 Your recording is backed up locally - safe from crashes & network issues', {

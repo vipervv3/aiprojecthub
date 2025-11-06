@@ -89,6 +89,7 @@ export default function ProjectDetailsPage() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [loadingData, setLoadingData] = useState(true)
   const [showMembersModal, setShowMembersModal] = useState(false)
+  const [showAddTaskModal, setShowAddTaskModal] = useState(false)
 
   useEffect(() => {
     const loadProjectData = async () => {
@@ -168,11 +169,21 @@ export default function ProjectDetailsPage() {
     console.log('🎯 Updating task status on project page:', { taskId, newStatus })
     
     try {
+      // Get auth session for API call
+      const { supabase } = await import('@/lib/supabase')
+      const { data: { session } } = await supabase.auth.getSession()
+      
+      if (!session?.access_token) {
+        toast.error('Please log in to update tasks')
+        return
+      }
+      
       // Update in database
       const response = await fetch(`/api/tasks/${taskId}/status`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({ status: newStatus }),
       })
@@ -206,8 +217,58 @@ export default function ProjectDetailsPage() {
   }
 
   const handleAddTask = () => {
-    // TODO: Open add task modal
-    console.log('Add task')
+    setShowAddTaskModal(true)
+  }
+
+  const handleCreateTask = async (taskData: Omit<Task, 'id' | 'created_at' | 'updated_at'>) => {
+    if (!user || !project) return
+
+    try {
+      // Get auth session for API call
+      const { supabase } = await import('@/lib/supabase')
+      const { data: { session } } = await supabase.auth.getSession()
+      
+      if (!session?.access_token) {
+        toast.error('Please log in to create tasks')
+        return
+      }
+      
+      // Ensure project_id is set to current project
+      const taskToCreate = {
+        ...taskData,
+        project_id: project.id
+      }
+
+      // Use the API endpoint we created
+      const response = await fetch('/api/tasks', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify(taskToCreate),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to create task')
+      }
+
+      const result = await response.json()
+      
+      // Add the new task to local state with project info
+      const newTask = {
+        ...result.task,
+        projects: { name: project.name }
+      } as Task
+      
+      setTasks(prev => [newTask, ...prev])
+      setShowAddTaskModal(false)
+      toast.success('Task created successfully')
+    } catch (error) {
+      console.error('Error creating task:', error)
+      toast.error('Failed to create task: ' + (error as Error).message)
+    }
   }
 
   const handleInviteMember = () => {
@@ -352,6 +413,152 @@ export default function ProjectDetailsPage() {
         projectName={project?.name || ''}
         isOwner={true} // TODO: Determine if current user is owner
       />
+
+      {/* Add Task Modal */}
+      {showAddTaskModal && (
+        <CreateTaskModal
+          isOpen={showAddTaskModal}
+          onClose={() => setShowAddTaskModal(false)}
+          onCreate={handleCreateTask}
+          projectId={projectId}
+        />
+      )}
+    </div>
+  )
+}
+
+// Create Task Modal Component for Project Page
+const CreateTaskModal: React.FC<{
+  isOpen: boolean
+  onClose: () => void
+  onCreate: (task: Omit<Task, 'id' | 'created_at' | 'updated_at'>) => void
+  projectId: string
+}> = ({ isOpen, onClose, onCreate, projectId }) => {
+  const [formData, setFormData] = useState({
+    title: '',
+    description: '',
+    status: 'todo' as 'todo' | 'in_progress' | 'completed',
+    priority: 'medium' as 'low' | 'medium' | 'high' | 'urgent',
+    due_date: '',
+  })
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    if (!formData.title.trim()) {
+      toast.error('Please enter a task title')
+      return
+    }
+
+    // Prepare data for submission
+    const submitData: Omit<Task, 'id' | 'created_at' | 'updated_at'> = {
+      ...formData,
+      project_id: projectId,
+      due_date: formData.due_date.trim() ? formData.due_date : undefined,
+      description: formData.description || '',
+    }
+
+    onCreate(submitData)
+    setFormData({
+      title: '',
+      description: '',
+      status: 'todo',
+      priority: 'medium',
+      due_date: '',
+    })
+  }
+
+  if (!isOpen) return null
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 w-full max-w-md">
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">Create New Task</h2>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Task Title *
+            </label>
+            <input
+              type="text"
+              value={formData.title}
+              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="Enter task title"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Description
+            </label>
+            <textarea
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="Enter task description"
+              rows={3}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Status
+              </label>
+              <select
+                value={formData.status}
+                onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="todo">To Do</option>
+                <option value="in_progress">In Progress</option>
+                <option value="completed">Completed</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Priority
+              </label>
+              <select
+                value={formData.priority}
+                onChange={(e) => setFormData({ ...formData, priority: e.target.value as any })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+                <option value="urgent">Urgent</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Due Date
+            </label>
+            <input
+              type="date"
+              value={formData.due_date}
+              onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+          <div className="flex gap-3 pt-4">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+              Create Task
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   )
 }
