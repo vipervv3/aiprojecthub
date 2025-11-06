@@ -385,8 +385,7 @@ export default function MeetingDetailPage() {
           if (session) {
             console.log(`   🔑 Auth token available`)
             console.log(`   Session user ID: ${session.user?.id || 'NONE'}`)
-            console.log(`   Access token length: ${session.access_token?.length || 0}`)
-            console.log(`   Token expires at: ${session.expires_at ? new Date(session.expires_at * 1000).toISOString() : 'NONE'}`)
+            // Don't log token details for security
             console.log(`   Calling link-tasks API...`)
             
             const linkResponse = await fetch(`/api/meetings/${actualMeetingId}/link-tasks`, {

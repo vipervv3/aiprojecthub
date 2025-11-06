@@ -4,8 +4,13 @@ import { createClient } from '@supabase/supabase-js'
 
 const assemblyAI = new AssemblyAIService()
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY! || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+// Validate environment variables
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+if (!supabaseUrl || !supabaseServiceKey) {
+  throw new Error('Missing required Supabase environment variables: NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required')
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -54,6 +59,18 @@ export async function POST(request: NextRequest) {
     // This runs asynchronously and won't block the response
     pollTranscriptionInBackground(sessionId, transcriptId).catch(err => {
       console.error(`❌ Background polling failed for ${sessionId}:`, err)
+      // Update session status to failed if polling fails immediately
+      const supabase = createClient(supabaseUrl, supabaseServiceKey)
+      supabase
+        .from('recording_sessions')
+        .update({
+          transcription_status: 'failed',
+          processing_error: `Background polling error: ${err instanceof Error ? err.message : String(err)}`,
+        })
+        .eq('id', sessionId)
+        .catch(updateErr => {
+          console.error(`Failed to update session status after polling error:`, updateErr)
+        })
     })
 
     return NextResponse.json({

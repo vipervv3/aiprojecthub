@@ -10,12 +10,10 @@ export async function GET(request: NextRequest) {
   try {
     const hasGroqKey = !!process.env.GROQ_API_KEY
     const groqKeyLength = process.env.GROQ_API_KEY?.length || 0
-    const groqKeyPrefix = process.env.GROQ_API_KEY?.substring(0, 10) || 'N/A'
 
     console.log('🧪 Testing Groq API...')
     console.log(`   GROQ_API_KEY: ${hasGroqKey ? 'SET' : 'NOT SET'}`)
-    console.log(`   Length: ${groqKeyLength}`)
-    console.log(`   Prefix: ${groqKeyPrefix}`)
+    // Don't log key length or prefix in production for security
 
     if (!hasGroqKey) {
       return NextResponse.json({
@@ -39,9 +37,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         success: true,
         message: 'Groq API is working!',
-        response: response?.substring(0, 100),
-        groqKeyLength,
-        groqKeyPrefix
+        response: response?.substring(0, 100)
+        // Don't expose key length or prefix in response
       })
     } catch (testError: any) {
       console.error('❌ Groq API test failed:', testError)
@@ -50,10 +47,8 @@ export async function GET(request: NextRequest) {
         success: false,
         error: 'Groq API call failed',
         details: testError?.message || 'Unknown error',
-        errorType: testError?.constructor?.name,
-        stack: testError?.stack?.substring(0, 500),
-        groqKeyLength,
-        groqKeyPrefix
+        errorType: testError?.constructor?.name
+        // Don't expose key length, prefix, or stack traces in production
       }, { status: 500 })
     }
 

@@ -23,7 +23,7 @@ export async function POST(
     console.log(`   Authorization header present: ${authHeader ? 'YES' : 'NO'}`)
     if (authHeader) {
       console.log(`   Header starts with 'Bearer ': ${authHeader.startsWith('Bearer ')}`)
-      console.log(`   Token length: ${authHeader.replace('Bearer ', '').length}`)
+      // Don't log token length or any token details for security
     }
     
     const user = await getAuthenticatedUser(request)

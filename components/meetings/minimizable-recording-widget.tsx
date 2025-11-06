@@ -83,7 +83,7 @@ export default function MinimizableRecordingWidget({
   const timerRef = useRef<NodeJS.Timeout | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const audioChunksRef = useRef<BlobPart[]>([])
-  const wakeLockRef = useRef<WakeLockSentinel | null>(null)
+  const wakeLockRef = useRef<any>(null) // WakeLockSentinel type not available in all TypeScript versions
   const sessionIdRef = useRef<string | null>(null)
   const chunkIndexRef = useRef<number>(0)
   const chunksBackedUpRef = useRef<number>(0)
