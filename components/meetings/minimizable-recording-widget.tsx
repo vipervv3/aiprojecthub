@@ -233,7 +233,17 @@ export default function MinimizableRecordingWidget({
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       streamRef.current = stream
 
-      const mediaRecorder = new MediaRecorder(stream)
+      let mediaRecorder: MediaRecorder
+      const recorderOptions: MediaRecorderOptions = {
+        audioBitsPerSecond: 64000,
+      }
+
+      try {
+        mediaRecorder = new MediaRecorder(stream, recorderOptions)
+      } catch (error) {
+        console.warn('Falling back to default MediaRecorder options:', error)
+        mediaRecorder = new MediaRecorder(stream)
+      }
       mediaRecorderRef.current = mediaRecorder
       audioChunksRef.current = []
 

@@ -170,9 +170,36 @@ export default function EnhancedRecordingModal({
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.hidden && isRecording && !isPaused) {
-        // Tab switched - recording continues, but warn user
-        console.log('📱 Tab switched during recording - recording continues in background')
-        toast('Recording continues in background', { icon: '📱', duration: 3000 })
+        // Tab switched or screen locked
+        console.log('📱 Page hidden during recording')
+        const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent)
+        
+        if (isIOS) {
+          // iOS may pause recording when screen locks
+          toast('⚠️ Screen locked/backgrounded - Recording may pause on iPhone!', {
+            icon: '📱',
+            duration: 5000,
+          })
+        } else {
+          // Other browsers - recording should continue
+          toast('Recording continues in background', { icon: '📱', duration: 3000 })
+        }
+        
+        // Try to re-request wake lock if available
+        if ('wakeLock' in navigator && wakeLockRef.current === null) {
+          requestWakeLock().catch(() => {})
+        }
+      } else if (!document.hidden && isRecording && !isPaused) {
+        // Page visible again - check if recording is still active
+        console.log('📱 Page visible again - checking recording status')
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'inactive') {
+          toast.error('⚠️ Recording stopped when screen was locked. Please start a new recording.', {
+            duration: 6000,
+          })
+          setIsRecording(false)
+        } else {
+          toast('✅ Recording resumed', { icon: '✅', duration: 2000 })
+        }
       }
     }
 
@@ -205,14 +232,60 @@ export default function EnhancedRecordingModal({
         const wakeLock = await (navigator as any).wakeLock.request('screen')
         wakeLockRef.current = wakeLock
         
-        wakeLock.addEventListener('release', () => {
-          console.log('Wake lock released (screen can sleep now)')
-        })
+        // ✅ CRITICAL: Re-request wake lock if it's released (e.g., screen lock button pressed)
+        const handleWakeLockRelease = async () => {
+          console.log('⚠️ Wake lock released - screen may sleep')
+          // Re-request if still recording
+          if (isRecording && !isPaused) {
+            console.log('🔄 Re-requesting wake lock...')
+            try {
+              const newWakeLock = await (navigator as any).wakeLock.request('screen')
+              wakeLockRef.current = newWakeLock
+              newWakeLock.addEventListener('release', handleWakeLockRelease) // Re-attach listener
+              console.log('✅ Wake lock re-acquired')
+            } catch (reRequestError) {
+              console.warn('Failed to re-request wake lock:', reRequestError)
+              // On iOS, this might fail - warn user
+              const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent)
+              if (isIOS) {
+                toast('⚠️ Screen locked - recording may pause on iOS. Keep screen on!', {
+                  icon: '📱',
+                  duration: 5000,
+                })
+              }
+            }
+          }
+        }
+        wakeLock.addEventListener('release', handleWakeLockRelease)
         
-        toast('📱 Screen will stay awake during recording', { duration: 3000 })
+        const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent)
+        if (isIOS) {
+          toast('📱 Keep screen on! Locking screen may pause recording on iPhone', {
+            icon: '📱',
+            duration: 5000,
+          })
+        } else {
+          toast('📱 Screen will stay awake during recording', { duration: 3000 })
+        }
+      } else {
+        // Wake Lock not supported - warn iOS users
+        const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent)
+        if (isIOS) {
+          toast('⚠️ Keep screen on! Locking screen will pause recording on iPhone', {
+            icon: '📱',
+            duration: 6000,
+          })
+        }
       }
     } catch (err) {
       console.warn('Wake Lock API not supported or failed:', err)
+      const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent)
+      if (isIOS) {
+        toast('⚠️ Keep screen on! Locking screen will pause recording on iPhone', {
+          icon: '📱',
+          duration: 6000,
+        })
+      }
       // Not critical, continue recording
     }
   }
@@ -272,9 +345,18 @@ export default function EnhancedRecordingModal({
         }
       }
 
-      const mediaRecorder = new MediaRecorder(stream, {
+      let mediaRecorder: MediaRecorder
+      const recorderOptions: MediaRecorderOptions = {
         mimeType: mimeType || undefined,
-      })
+        audioBitsPerSecond: 64000,
+      }
+
+      try {
+        mediaRecorder = new MediaRecorder(stream, recorderOptions)
+      } catch (error) {
+        console.warn('Falling back to default MediaRecorder options:', error)
+        mediaRecorder = new MediaRecorder(stream)
+      }
       mediaRecorderRef.current = mediaRecorder
       chunksRef.current = []
 
@@ -382,9 +464,22 @@ export default function EnhancedRecordingModal({
       
       setIsRecording(true)
       setRecordingTime(0)
-      toast.success('Recording started' + (isMobile ? ' 📱' : '') + ' - Auto-saving every 10 seconds', {
-        duration: 5000,
-      })
+      
+      const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent)
+      if (isIOS) {
+        toast.success('Recording started 📱 - Keep screen on!', {
+          duration: 5000,
+        })
+        toast('⚠️ IMPORTANT: Do NOT lock your iPhone screen - it will pause recording!', {
+          icon: '📱',
+          duration: 8000,
+        })
+      } else {
+        toast.success('Recording started' + (isMobile ? ' 📱' : '') + ' - Auto-saving every 10 seconds', {
+          duration: 5000,
+        })
+      }
+      
       toast('💾 Your recording is backed up locally - safe from crashes & network issues', {
         icon: '💾',
         duration: 5000,
@@ -822,6 +917,19 @@ export default function EnhancedRecordingModal({
                   <p className="text-sm text-gray-500">
                     {isRecording ? (isPaused ? 'Paused' : 'Recording...') : 'Ready to record'}
                   </p>
+                  
+                  {/* iOS Warning - Keep Screen On */}
+                  {isRecording && typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent) && (
+                    <div className="mt-3 p-3 bg-yellow-50 dark:bg-yellow-900/20 border-2 border-yellow-400 dark:border-yellow-600 rounded-lg">
+                      <div className="flex items-start gap-2">
+                        <span className="text-yellow-600 dark:text-yellow-400 text-lg">⚠️</span>
+                        <div className="text-xs text-yellow-800 dark:text-yellow-200">
+                          <p className="font-semibold mb-1">Keep your iPhone screen ON!</p>
+                          <p>Locking the screen will pause recording. Keep the app open and screen active.</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   
                   {/* Live Upload Status */}
                   {isRecording && (

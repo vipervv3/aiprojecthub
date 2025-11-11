@@ -212,6 +212,44 @@ export default function ProjectDetailsPage() {
     }
   }
 
+  const handleDeleteTask = async (taskId: string) => {
+    if (!window.confirm('Are you sure you want to delete this task? This action cannot be undone.')) {
+      return
+    }
+
+    try {
+      // Get auth session for API call
+      const { supabase } = await import('@/lib/supabase')
+      const { data: { session } } = await supabase.auth.getSession()
+      
+      if (!session?.access_token) {
+        toast.error('Please log in to delete tasks')
+        return
+      }
+
+      // Delete task via API
+      const response = await fetch(`/api/tasks/${taskId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to delete task')
+      }
+
+      // Remove task from local state
+      setTasks(prev => prev.filter(task => task.id !== taskId))
+      
+      toast.success('Task deleted successfully')
+    } catch (error) {
+      console.error('❌ Error deleting task:', error)
+      toast.error('Failed to delete task: ' + (error as Error).message)
+    }
+  }
+
   const handleBackToProjects = () => {
     router.push('/projects')
   }
@@ -399,6 +437,7 @@ export default function ProjectDetailsPage() {
         <KanbanBoard
           tasks={tasks}
           onTaskUpdate={updateTaskStatus}
+          onDelete={handleDeleteTask}
         />
 
         {/* Floating Action Buttons */}

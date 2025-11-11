@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
-import { Calendar, Clock, Users, Video, MapPin, Plus, Search, Filter, Edit, Trash2, Eye, CheckCircle, XCircle, AlertCircle, FileText, RefreshCw } from 'lucide-react'
+import { Calendar, Clock, Users, Video, MapPin, Plus, Search, Filter, Edit, Trash2, Eye, CheckCircle, XCircle, AlertCircle, FileText, RefreshCw, Loader2 } from 'lucide-react'
 import { useAuth } from '@/app/providers'
 import { dataService } from '@/lib/data-service'
 import { supabase } from '@/lib/supabase'
@@ -593,6 +593,48 @@ export default function EnhancedMeetingsPage() {
     }
   }
 
+  const handleCheckTranscriptionStatus = async (sessionId: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    
+    toast.loading('Checking transcription status...', { id: 'check-status' })
+    
+    try {
+      const response = await fetch('/api/fix-stuck-transcriptions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId })
+      })
+
+      const result = await response.json()
+
+      if (response.ok) {
+        if (result.fixed > 0) {
+          toast.success(`✅ Transcription completed! Refreshing...`, { id: 'check-status' })
+          setTimeout(() => loadMeetings(), 2000)
+        } else if (result.results && result.results.length > 0) {
+          const statusResult = result.results[0]
+          if (statusResult.status === 'completed') {
+            toast.success('✅ Transcription is complete! Refreshing...', { id: 'check-status' })
+            setTimeout(() => loadMeetings(), 2000)
+          } else if (statusResult.status === 'processing' || statusResult.status === 'queued') {
+            toast.info(`⏳ Still ${statusResult.status}...`, { id: 'check-status' })
+          } else if (statusResult.status === 'failed') {
+            toast.error(`❌ Transcription failed: ${statusResult.message}`, { id: 'check-status' })
+          } else {
+            toast.info(`Status: ${statusResult.message}`, { id: 'check-status' })
+          }
+        } else {
+          toast.info('No update needed', { id: 'check-status' })
+        }
+      } else {
+        toast.error(result.error || 'Failed to check status', { id: 'check-status' })
+      }
+    } catch (error) {
+      console.error('Error checking transcription status:', error)
+      toast.error('Failed to check status: ' + (error instanceof Error ? error.message : 'Unknown error'), { id: 'check-status' })
+    }
+  }
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'scheduled': return 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300'
@@ -757,6 +799,19 @@ export default function EnhancedMeetingsPage() {
                   </div>
                   
                   <div className="flex items-center gap-2 sm:ml-4 flex-shrink-0">
+                    {/* Check Status button - show for stuck transcriptions */}
+                    {((meeting as any)._transcriptionStatus === 'pending' || (meeting as any)._transcriptionStatus === 'processing') && (meeting as any)._recordingSessionId && (
+                      <button
+                        onClick={(e) => handleCheckTranscriptionStatus((meeting as any)._recordingSessionId, e)}
+                        className="bg-yellow-500 dark:bg-yellow-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-yellow-600 dark:hover:bg-yellow-700 flex items-center gap-2 text-xs sm:text-sm touch-manipulation font-medium shadow-sm"
+                        title="Check if transcription has completed"
+                      >
+                        <Loader2 className="h-4 w-4" />
+                        <span className="hidden sm:inline">Check Status</span>
+                        <span className="sm:hidden">Check</span>
+                      </button>
+                    )}
+                    
                     {/* View Details button - always visible, navigates to meeting detail page or processes orphaned recording */}
                     <button
                       onClick={async (e) => {

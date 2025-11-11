@@ -86,7 +86,17 @@ export default function RecordingModal({
       // Detect mobile device
       const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
       
-      const mediaRecorder = new MediaRecorder(stream)
+      let mediaRecorder: MediaRecorder
+      const recorderOptions: MediaRecorderOptions = {
+        audioBitsPerSecond: 64000, // ~64 kbps keeps 60 min recording under 30MB
+      }
+
+      try {
+        mediaRecorder = new MediaRecorder(stream, recorderOptions)
+      } catch (error) {
+        console.warn('Falling back to default MediaRecorder options:', error)
+        mediaRecorder = new MediaRecorder(stream)
+      }
       mediaRecorderRef.current = mediaRecorder
 
       chunksRef.current = [] // Reset chunks
