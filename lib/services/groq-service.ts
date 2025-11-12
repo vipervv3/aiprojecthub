@@ -7,6 +7,60 @@ const GROQ_API_KEY = process.env.GROQ_API_KEY
 const GROQ_BASE_URL = 'https://api.groq.com/openai/v1'
 const GROQ_MODEL = 'llama-3.3-70b-versatile' // Latest stable model (Dec 2024)
 
+const GENERIC_TASK_PATTERNS: RegExp[] = [
+  /review (the )?meeting transcript/i,
+  /extract action items?/i,
+  /review meeting notes/i,
+  /summarize (this|the) meeting/i,
+  /general follow[-\s]?up/i,
+  /meeting recap/i,
+]
+
+const GENERIC_TITLE_PATTERNS: RegExp[] = [
+  /^meeting (recording|summary|notes)$/i,
+  /^team meeting$/i,
+  /^general (meeting|discussion)$/i,
+  /^status update$/i,
+  /^weekly (sync|meeting)$/i,
+  /^catch[-\s]?up$/i,
+]
+
+function isGenericTask(task: ExtractedTask): boolean {
+  const title = task.title?.toLowerCase().trim() || ''
+  const description = task.description?.toLowerCase().trim() || ''
+
+  if (!title || !description) {
+    return true
+  }
+
+  return GENERIC_TASK_PATTERNS.some(pattern => pattern.test(title) || pattern.test(description))
+}
+
+function normalisePriority(priority?: string): ExtractedTask['priority'] {
+  const value = priority?.toLowerCase().trim()
+  if (value === 'low' || value === 'medium' || value === 'high' || value === 'urgent') {
+    return value
+  }
+  return 'medium'
+}
+
+function isGenericTitle(title: string): boolean {
+  const normalised = title.toLowerCase().trim()
+  if (!normalised) return true
+
+  if (GENERIC_TITLE_PATTERNS.some(pattern => pattern.test(normalised))) {
+    return true
+  }
+
+  // Filter ultra-short catch-all titles like "Meeting" or "Sync"
+  const words = normalised.split(/\s+/)
+  if (words.length <= 2 && !normalised.includes(':') && !normalised.includes('-')) {
+    return true
+  }
+
+  return false
+}
+
 export interface ExtractedTask {
   title: string
   description: string
@@ -187,8 +241,39 @@ If no clear tasks are found, return an empty array: []`
           cleanResponse = arrayMatch[0]
         }
         
-        const tasks = JSON.parse(cleanResponse)
-        return Array.isArray(tasks) ? tasks : []
+        const rawTasks = JSON.parse(cleanResponse)
+        if (!Array.isArray(rawTasks)) {
+          return []
+        }
+
+        const uniqueTasks: ExtractedTask[] = []
+        const seen = new Set<string>()
+
+        for (const task of rawTasks) {
+          if (!task) continue
+
+          const cleanedTask: ExtractedTask = {
+            title: (task.title || '').toString().trim(),
+            description: (task.description || '').toString().trim(),
+            priority: normalisePriority(task.priority),
+            estimated_hours: typeof task.estimated_hours === 'number' ? task.estimated_hours : undefined,
+            due_date: task.due_date,
+          }
+
+          if (isGenericTask(cleanedTask)) {
+            continue
+          }
+
+          const fingerprint = `${cleanedTask.title.toLowerCase()}|${cleanedTask.description.toLowerCase()}`
+          if (seen.has(fingerprint)) {
+            continue
+          }
+
+          seen.add(fingerprint)
+          uniqueTasks.push(cleanedTask)
+        }
+
+        return uniqueTasks
       } catch (parseError) {
         console.error('Error parsing task JSON:', parseError)
         console.log('Raw response:', response)
@@ -203,10 +288,21 @@ If no clear tasks are found, return an empty array: []`
   /**
    * Generate meeting title from transcript
    */
-  async generateMeetingTitle(transcript: string): Promise<string> {
+  async generateMeetingTitle(
+    transcript: string,
+    options?: {
+      projectName?: string
+      summary?: string
+      keyPoints?: string[]
+    }
+  ): Promise<string> {
     try {
-      const systemPrompt = `Generate a concise, descriptive meeting title (max 60 characters) from this transcript.
-The title should capture the main topic or purpose of the meeting.
+      const { projectName, summary, keyPoints } = options || {}
+
+      const systemPrompt = `Generate a concise, descriptive meeting title (max 60 characters) from the provided context.
+The title must capture the main topic, decision, or problem discussed.
+Avoid generic titles like "Team Meeting", "Meeting Recording", "Status Update", or "General Discussion".
+If the transcript lacks detail, highlight the most specific topic mentioned or a key decision that still needs attention.
 
 Return ONLY the title text, no quotes, no JSON, just the plain title.
 
@@ -217,13 +313,45 @@ Examples:
 - "Customer Feedback Review"
 `
 
+      const contextualPrompts: string[] = []
+      if (projectName) {
+        contextualPrompts.push(`Project: ${projectName}`)
+      }
+      if (summary) {
+        contextualPrompts.push(`Summary: ${summary}`)
+      }
+      if (keyPoints && keyPoints.length > 0) {
+        contextualPrompts.push(`Key Points: ${keyPoints.slice(0, 4).join('; ')}`)
+      }
+
+      contextualPrompts.push(`Transcript: ${transcript.substring(0, 1500)}`)
+
       const response = await this.chat([
         { role: 'system', content: systemPrompt },
-        { role: 'user', content: `Meeting Transcript:\n${transcript.substring(0, 1000)}` } // First 1000 chars
+        { role: 'user', content: contextualPrompts.join('\n\n') }
       ], 0.5)
 
-      const title = response.trim().replace(/^["']|["']$/g, '') // Remove quotes if present
-      return title.substring(0, 60) // Ensure max 60 chars
+      let title = response.trim().replace(/^["']|["']$/g, '') // Remove quotes if present
+      title = title.substring(0, 60) // Ensure max 60 chars
+
+      if (!isGenericTitle(title)) {
+        return title
+      }
+
+      const fallbackCandidates = [
+        keyPoints?.[0],
+        summary?.split(/[\.\n]/)[0],
+        projectName ? `${projectName} Follow-up` : undefined,
+      ].filter(Boolean) as string[]
+
+      for (const candidate of fallbackCandidates) {
+        const trimmed = candidate.trim().substring(0, 60)
+        if (trimmed && !isGenericTitle(trimmed)) {
+          return trimmed
+        }
+      }
+
+      return projectName ? `${projectName} Meeting Notes` : 'Meeting Follow-up Needed'
     } catch (error) {
       console.error('Error generating title:', error)
       return 'Meeting Recording' // Fallback

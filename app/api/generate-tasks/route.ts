@@ -21,26 +21,33 @@ export async function POST(request: NextRequest) {
 
     // Get project context
     let projectContext = ''
+    let projectName: string | undefined
     try {
       const projects = await dataService.getProjects(userId)
       const project = projects.find((p: any) => p.id === projectId)
       if (project) {
+        projectName = project.name
         projectContext = `Project: ${project.name}\nDescription: ${project.description || 'No description'}`
       }
     } catch (error) {
       console.warn('Could not load project context:', error)
     }
 
-    // Generate meeting title from transcript
-    const generatedTitle = await groq.generateMeetingTitle(transcript)
-    console.log(`AI Generated Title: ${generatedTitle}`)
-
     // Analyze transcript and extract tasks
     const analysis = await groq.analyzeTranscript(transcript, projectContext)
+    const filteredTasks = analysis.tasks || []
+
+    // Generate meeting title from transcript and summary context
+    const generatedTitle = await groq.generateMeetingTitle(transcript, {
+      projectName,
+      summary: analysis.summary.summary,
+      keyPoints: analysis.summary.keyPoints,
+    })
+    console.log(`AI Generated Title: ${generatedTitle}`)
 
     // Create tasks in database
     const createdTasks = []
-    for (const extractedTask of analysis.tasks) {
+    for (const extractedTask of filteredTasks) {
       try {
         // ✅ Automatically set due date to 7 days from now if not provided
         let dueDate = extractedTask.due_date
@@ -126,7 +133,7 @@ export async function POST(request: NextRequest) {
         .eq('id', recordingSessions.id)
     }
 
-    console.log(`Generated ${createdTasks.length} tasks from transcript`)
+    console.log(`Generated ${createdTasks.length} tasks from transcript (filtered from ${filteredTasks.length})`)
     console.log(`Meeting title: ${generatedTitle}`)
 
     return NextResponse.json({

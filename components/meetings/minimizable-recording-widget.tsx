@@ -87,6 +87,7 @@ export default function MinimizableRecordingWidget({
   const sessionIdRef = useRef<string | null>(null)
   const chunkIndexRef = useRef<number>(0)
   const chunksBackedUpRef = useRef<number>(0)
+  const recordingTimeRef = useRef<number>(0) // Track recording time for state saves
 
   // Load projects on mount and when modal opens
   useEffect(() => {
@@ -127,7 +128,11 @@ export default function MinimizableRecordingWidget({
   useEffect(() => {
     if (isRecording && !isPaused) {
       timerRef.current = setInterval(() => {
-        setRecordingTime(prev => prev + 1)
+        setRecordingTime(prev => {
+          const newTime = prev + 1
+          recordingTimeRef.current = newTime // Update ref for state saves
+          return newTime
+        })
       }, 1000)
     } else {
       if (timerRef.current) {
@@ -175,6 +180,157 @@ export default function MinimizableRecordingWidget({
     }
   }, [isRecording])
 
+  // ✅ Mobile-specific: Page visibility handling with recovery
+  useEffect(() => {
+    if (!isRecording) return
+
+    const handleVisibilityChange = () => {
+      const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent)
+      const isAndroid = /Android/i.test(navigator.userAgent)
+
+      if (document.hidden) {
+        // Page went to background - save state immediately
+        if (sessionIdRef.current && chunksBackedUpRef.current > 0) {
+          // Save recovery state to localStorage as backup
+          try {
+            localStorage.setItem('recording_recovery_state', JSON.stringify({
+              sessionId: sessionIdRef.current,
+              chunksBackedUp: chunksBackedUpRef.current,
+              recordingTime: recordingTimeRef.current, // Use ref for current value
+              timestamp: Date.now(),
+              projectId: selectedProjectId
+            }))
+            console.log('💾 Saved recovery state to localStorage')
+          } catch (e) {
+            console.warn('Failed to save recovery state:', e)
+          }
+        }
+
+        if (isIOS) {
+          toast('⚠️ Keep app open! iOS may pause recording in background', {
+            icon: '📱',
+            duration: 8000,
+          })
+        } else if (isAndroid) {
+          toast('📱 Recording continues in background - chunks are saved', {
+            icon: '💾',
+            duration: 4000,
+          })
+        }
+      } else {
+        // Page visible again - check recording status
+        console.log('📱 Page visible - checking recording status')
+        
+        if (mediaRecorderRef.current) {
+          const state = mediaRecorderRef.current.state
+          
+          if (state === 'inactive' || state === 'paused') {
+            // Recording stopped - try to recover
+            toast.error('⚠️ Recording may have stopped. Check your recording status.', {
+              duration: 6000,
+            })
+            
+            // Check if we have backed up chunks
+            if (sessionIdRef.current) {
+              recordingBackupService.getChunks(sessionIdRef.current)
+                .then(chunks => {
+                  if (chunks.length > 0) {
+                    toast.success(`💾 Found ${chunks.length} saved chunks - your recording is safe!`, {
+                      duration: 6000,
+                    })
+                  }
+                })
+                .catch(err => console.error('Error checking chunks:', err))
+            }
+          } else {
+            toast('✅ Recording is active', { icon: '✅', duration: 2000 })
+            
+            // Re-request wake lock if released
+            if ('wakeLock' in navigator && wakeLockRef.current === null) {
+              requestWakeLock().catch(() => {})
+            }
+          }
+        }
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [isRecording, recordingTime, selectedProjectId])
+
+  // ✅ Mobile recovery: Check for incomplete recordings on mount
+  useEffect(() => {
+    const checkRecoveryState = async () => {
+      try {
+        const recoveryState = localStorage.getItem('recording_recovery_state')
+        if (!recoveryState) return
+
+        const state = JSON.parse(recoveryState)
+        const age = Date.now() - state.timestamp
+        const isRecent = age < 24 * 60 * 60 * 1000 // 24 hours
+
+        if (!isRecent) {
+          // Old recovery state - clean up
+          localStorage.removeItem('recording_recovery_state')
+          return
+        }
+
+        // Check if session has chunks in IndexedDB
+        await recordingBackupService.init()
+        const chunks = await recordingBackupService.getChunks(state.sessionId)
+
+        if (chunks.length > 0) {
+          // Found incomplete recording - show recovery option
+          const shouldRecover = window.confirm(
+            `📱 Found incomplete recording from ${new Date(state.timestamp).toLocaleString()}\n\n` +
+            `Duration: ${Math.floor(state.recordingTime / 60)}:${String(state.recordingTime % 60).padStart(2, '0')}\n` +
+            `Chunks saved: ${chunks.length}\n\n` +
+            `Would you like to recover this recording?`
+          )
+
+          if (shouldRecover) {
+            // Recover recording
+            toast.loading('Recovering recording...', { id: 'recovery' })
+            
+            // Reassemble blob from chunks
+            const sortedChunks = chunks.sort((a, b) => a.chunkIndex - b.chunkIndex)
+            const blobParts = sortedChunks.map(chunk => chunk.blob)
+            const recoveredBlob = new Blob(blobParts, { type: 'audio/webm' })
+
+            setAudioBlob(recoveredBlob)
+            setAudioUrl(URL.createObjectURL(recoveredBlob))
+            setRecordingTime(state.recordingTime)
+            setSelectedProjectId(state.projectId || '')
+            sessionIdRef.current = state.sessionId
+            chunksBackedUpRef.current = chunks.length
+
+            toast.success('✅ Recording recovered! Click Upload & Process to save it.', {
+              id: 'recovery',
+              duration: 8000,
+            })
+
+            // Clean up recovery state
+            localStorage.removeItem('recording_recovery_state')
+          } else {
+            // User chose not to recover - clean up
+            localStorage.removeItem('recording_recovery_state')
+          }
+        } else {
+          // No chunks found - clean up
+          localStorage.removeItem('recording_recovery_state')
+        }
+      } catch (error) {
+        console.error('Error checking recovery state:', error)
+        localStorage.removeItem('recording_recovery_state')
+      }
+    }
+
+    // Check after a short delay to ensure backup service is initialized
+    setTimeout(checkRecoveryState, 1000)
+  }, [])
+
   // ✅ Request wake lock to prevent screen sleep (mobile support)
   const requestWakeLock = async () => {
     try {
@@ -182,15 +338,70 @@ export default function MinimizableRecordingWidget({
         const wakeLock = await (navigator as any).wakeLock.request('screen')
         wakeLockRef.current = wakeLock
         
-        wakeLock.addEventListener('release', () => {
-          console.log('Wake lock released (screen can sleep now)')
-        })
+        // Handle wake lock release (e.g., user presses power button)
+        const handleRelease = async () => {
+          console.log('⚠️ Wake lock released - screen may sleep')
+          wakeLockRef.current = null
+          
+          // On mobile, try to re-acquire wake lock if still recording
+          // Check mediaRecorder state instead of React state (which may be stale)
+          if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+            const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent)
+            if (!isIOS) {
+              // Android: Try to re-acquire after a short delay
+              setTimeout(async () => {
+                try {
+                  if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+                    const newWakeLock = await (navigator as any).wakeLock.request('screen')
+                    wakeLockRef.current = newWakeLock
+                    newWakeLock.addEventListener('release', handleRelease)
+                    console.log('✅ Wake lock re-acquired')
+                  }
+                } catch (reacquireError) {
+                  console.warn('Failed to re-acquire wake lock:', reacquireError)
+                }
+              }, 500)
+            } else {
+              // iOS: Warn user
+              toast('⚠️ Keep screen on! Recording may pause if screen locks', {
+                icon: '📱',
+                duration: 6000,
+              })
+            }
+          }
+        }
         
+        wakeLock.addEventListener('release', handleRelease)
         console.log('✅ Wake lock acquired - screen will stay awake')
+        
+        // Mobile-specific: Show warning if on iOS
+        const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent)
+        if (isIOS) {
+          toast('📱 Keep app open and screen on for best results on iPhone', {
+            icon: '📱',
+            duration: 6000,
+          })
+        }
+      } else {
+        // Wake Lock not supported - show mobile warning
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
+        if (isMobile) {
+          toast('⚠️ Keep screen on during recording!', {
+            icon: '📱',
+            duration: 5000,
+          })
+        }
       }
     } catch (err) {
       console.warn('Wake Lock API not supported or failed:', err)
       // Not critical, continue recording
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
+      if (isMobile) {
+        toast('⚠️ Keep screen on during recording!', {
+          icon: '📱',
+          duration: 5000,
+        })
+      }
     }
   }
 
@@ -278,8 +489,43 @@ export default function MinimizableRecordingWidget({
       }
 
       mediaRecorder.onstop = async () => {
+        // ✅ Clear periodic state save interval
+        if ((mediaRecorderRef.current as any)?._stateSaveInterval) {
+          clearInterval((mediaRecorderRef.current as any)._stateSaveInterval)
+          delete (mediaRecorderRef.current as any)._stateSaveInterval
+        }
+        
         // ✅ Release wake lock
         await releaseWakeLock()
+        
+        // ✅ Update session status in backup
+        if (sessionIdRef.current) {
+          await recordingBackupService.saveSession({
+            sessionId: sessionIdRef.current,
+            userId: user?.id || 'demo-user',
+            projectId: selectedProjectId,
+            startTime: Date.now(),
+            chunks: [],
+            uploadedChunks: [],
+            status: 'stopped'
+          })
+        }
+        
+        // ✅ Final state save to localStorage
+        if (sessionIdRef.current && chunksBackedUpRef.current > 0) {
+          try {
+            localStorage.setItem('recording_recovery_state', JSON.stringify({
+              sessionId: sessionIdRef.current,
+              chunksBackedUp: chunksBackedUpRef.current,
+              recordingTime: recordingTimeRef.current, // Use ref for current value
+              timestamp: Date.now(),
+              projectId: selectedProjectId,
+              completed: true // Mark as completed
+            }))
+          } catch (e) {
+            console.warn('Failed to save final recovery state:', e)
+          }
+        }
         
         const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' })
         setAudioBlob(blob)
@@ -300,6 +546,40 @@ export default function MinimizableRecordingWidget({
       mediaRecorder.start(1000)
       setIsRecording(true)
       setRecordingTime(0)
+      recordingTimeRef.current = 0 // Reset ref
+      
+      // ✅ Save session metadata to backup service
+      await recordingBackupService.saveSession({
+        sessionId: newSessionId,
+        userId: user?.id || 'demo-user',
+        projectId: selectedProjectId,
+        startTime: Date.now(),
+        chunks: [],
+        uploadedChunks: [],
+        status: 'recording'
+      })
+      
+      // ✅ Periodic state save to localStorage (every 30 seconds) as backup
+      const stateSaveInterval = setInterval(() => {
+        if (sessionIdRef.current && chunksBackedUpRef.current > 0) {
+          try {
+            localStorage.setItem('recording_recovery_state', JSON.stringify({
+              sessionId: sessionIdRef.current,
+              chunksBackedUp: chunksBackedUpRef.current,
+              recordingTime: recordingTimeRef.current, // Use ref for current value
+              timestamp: Date.now(),
+              projectId: selectedProjectId
+            }))
+            console.log(`💾 State saved: ${recordingTimeRef.current}s, ${chunksBackedUpRef.current} chunks`)
+          } catch (e) {
+            console.warn('Failed to save recovery state:', e)
+          }
+        }
+      }, 30000) // Every 30 seconds
+      
+      // Store interval ID to clear on stop
+      ;(mediaRecorderRef.current as any)._stateSaveInterval = stateSaveInterval
+      
       toast.success('🎙️ Recording started - Protected against data loss!', {
         duration: 4000,
       })
@@ -307,6 +587,15 @@ export default function MinimizableRecordingWidget({
         icon: '💾',
         duration: 5000,
       })
+      
+      // Mobile-specific warning
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
+      if (isMobile) {
+        toast('📱 Keep app open for best results on mobile', {
+          icon: '📱',
+          duration: 6000,
+        })
+      }
     } catch (error) {
       console.error('Error starting recording:', error)
       toast.error('Failed to start recording. Please check microphone permissions.')

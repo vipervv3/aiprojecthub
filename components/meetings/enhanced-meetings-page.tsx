@@ -374,10 +374,27 @@ export default function EnhancedMeetingsPage() {
         
         // Transform recording sessions to Meeting format
         // ✅ Show ALL recordings - including those still being processed
+        const locale = typeof navigator !== 'undefined' ? navigator.language : 'en-US'
+
         const transformedMeetings: Meeting[] = recordingSessions
           .map((session: any) => {
             const associatedMeeting = meetingsMap.get(session.id)
             const createdDate = new Date(session.created_at)
+            const endDate = new Date(createdDate.getTime() + (session.duration || 30) * 60000)
+
+            const dateDisplay = createdDate.toLocaleDateString(locale, {
+              year: 'numeric',
+              month: 'short',
+              day: 'numeric',
+            })
+
+            const timeDisplayOptions: Intl.DateTimeFormatOptions = {
+              hour: 'numeric',
+              minute: '2-digit',
+              timeZoneName: 'short',
+            }
+            const startTimeDisplay = createdDate.toLocaleTimeString(locale, timeDisplayOptions)
+            const endTimeDisplay = endDate.toLocaleTimeString(locale, timeDisplayOptions)
             
             // ✅ IMPORTANT: Must use meeting ID if it exists
             const meetingId = associatedMeeting?.id
@@ -414,13 +431,13 @@ export default function EnhancedMeetingsPage() {
                 ? associatedMeeting.title 
                 : (typeof (session.title) === 'string' 
                   ? session.title 
-                  : `Recording - ${createdDate.toLocaleDateString()}`),
+                    : `Recording - ${dateDisplay}`),
               description: typeof (associatedMeeting?.description) === 'string'
                 ? associatedMeeting.description
                 : (typeof statusMessage === 'string' ? statusMessage : ''),
-              date: createdDate.toISOString().split('T')[0],
-              start_time: createdDate.toTimeString().slice(0, 5),
-              end_time: new Date(createdDate.getTime() + (session.duration || 30) * 60000).toTimeString().slice(0, 5),
+                date: dateDisplay,
+                start_time: startTimeDisplay,
+                end_time: endTimeDisplay,
               location: associatedMeeting?.location || '',
               meeting_type: 'video_call',
               status: meetingStatus,
