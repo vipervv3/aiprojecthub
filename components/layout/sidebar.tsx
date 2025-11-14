@@ -38,6 +38,7 @@ export default function Sidebar({ onMobileClose, isMobile = false }: { onMobileC
     { name: 'My Projects', href: '/projects', icon: FolderOpen, current: pathname === '/projects' },
     { name: 'Tasks', href: '/tasks', icon: CheckSquare, current: pathname === '/tasks' },
     { name: 'AI Insights', href: '/ai-insights', icon: Brain, badge: 'AI', current: pathname === '/ai-insights' },
+    { name: 'Alerts', href: '/alerts', icon: Bell, current: pathname === '/alerts' },
     { name: 'Analytics', href: '/analytics', icon: BarChart3, badge: '3', badgeColor: 'pink', current: pathname === '/analytics' },
     { name: 'Reports', href: '/reports', icon: FileText, badge: 'New', badgeColor: 'black', current: pathname === '/reports' },
     { name: 'Recordings', href: '/meetings', icon: Calendar, current: pathname === '/meetings' },

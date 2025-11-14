@@ -111,45 +111,91 @@ export async function POST(request: NextRequest) {
       
       // If no tasks extracted, try harder to extract from summary or transcript
       if (taskExtraction.tasks.length === 0) {
-        console.warn('⚠️ No tasks extracted, attempting to extract from summary or transcript')
+        console.warn('⚠️ No tasks extracted, attempting to extract from transcript using pattern matching')
         
-        // Try to find action items in the summary
-        const summary = taskExtraction.summary || transcriptionText.substring(0, 500)
+        // Try to find action items in the full transcript (not just summary)
+        const searchText = transcriptionText.length > 2000 
+          ? transcriptionText.substring(0, 2000) + ' ' + taskExtraction.summary 
+          : transcriptionText + ' ' + (taskExtraction.summary || '')
+        
+        // Improved patterns that capture complete phrases
         const actionPatterns = [
-          /(?:need to|should|must|will|going to|plan to|gonna)\s+([^.!?]+)/gi,
-          /(?:action item|task|todo|follow.?up):\s*([^.!?\n]+)/gi,
-          /(?:complete|finish|do|implement|create|build|fix)\s+([^.!?]+)/gi
+          /(?:need to|should|must|will|going to|plan to|gonna|let's|we'll)\s+(?:do|implement|create|build|fix|complete|finish|review|check|follow up on|work on|discuss)\s+([^.!?\n]{15,120})/gi,
+          /(?:action item|task|todo|follow.?up|action):\s*(?:is|will be|to)\s*([^.!?\n]{15,120})/gi,
+          /(?:complete|finish|do|implement|create|build|fix|review|check)\s+(?:the|this|that|a|an)\s+([^.!?\n]{15,120})/gi,
+          /(?:i'll|i will|we'll|we will)\s+(?:do|complete|finish|implement|create|build|fix|review|check|work on)\s+([^.!?\n]{15,120})/gi
         ]
         
-        const foundActions: string[] = []
+        const foundActions: Set<string> = new Set() // Use Set to avoid duplicates
+        
         actionPatterns.forEach(pattern => {
-          const matches = summary.matchAll(pattern)
+          const matches = searchText.matchAll(pattern)
           for (const match of matches) {
-            if (match[1] && match[1].trim().length > 10) {
-              foundActions.push(match[1].trim())
+            if (match[1]) {
+              let action = match[1].trim()
+              // Clean up the extracted action
+              action = action.replace(/^(the|this|that|a|an)\s+/i, '')
+              action = action.replace(/\s+(the|this|that|a|an)$/i, '')
+              // Ensure complete phrase (not cut off mid-word)
+              action = action.replace(/\s+\w{1,2}$/, '') // Remove trailing 1-2 char words
+              
+              if (action.length >= 15 && action.length <= 120) {
+                // Check for duplicate or very similar actions
+                const isDuplicate = Array.from(foundActions).some(existing => 
+                  existing.toLowerCase().includes(action.toLowerCase().substring(0, 20)) ||
+                  action.toLowerCase().includes(existing.toLowerCase().substring(0, 20))
+                )
+                if (!isDuplicate) {
+                  foundActions.add(action)
+                }
+              }
             }
           }
         })
         
-        if (foundActions.length > 0) {
-          console.log(`✅ Found ${foundActions.length} potential tasks from patterns`)
-          taskExtraction.tasks = foundActions.slice(0, 5).map((action, idx) => ({
-            title: action.substring(0, 100),
-            description: `Extracted action item from meeting: ${action}`,
-            priority: 'medium' as const,
-            estimatedHours: 1
-          }))
+        if (foundActions.size > 0) {
+          console.log(`✅ Found ${foundActions.size} potential tasks from patterns`)
+          taskExtraction.tasks = Array.from(foundActions).slice(0, 5).map((action) => {
+            // Create a proper title (first 80 chars at word boundary)
+            let title = action.substring(0, 80)
+            if (title.length === 80 && action.length > 80) {
+              const lastSpace = title.lastIndexOf(' ')
+              title = lastSpace > 20 ? title.substring(0, lastSpace) : title
+            }
+            title = title.charAt(0).toUpperCase() + title.slice(1)
+            
+            return {
+              title: title,
+              description: `Action item extracted from meeting transcript: ${action.substring(0, 200)}`,
+              priority: 'medium' as const,
+              estimatedHours: 1
+            }
+          })
         } else {
           console.warn('⚠️ No action patterns found, no tasks will be created')
           taskExtraction.tasks = []
         }
       }
       
-      if (!taskExtraction.summary) {
-        console.warn('⚠️ Task extraction summary is missing, generating fallback')
-        taskExtraction.summary = transcriptionText.length > 200 
-          ? `${transcriptionText.substring(0, 200)}...`
-          : transcriptionText
+      if (!taskExtraction.summary || taskExtraction.summary.length < 50) {
+        console.warn('⚠️ Task extraction summary is missing or too short, generating from transcript')
+        // Extract first 2-3 meaningful sentences for summary
+        const sentences = transcriptionText.split(/[.!?]\s+/).filter(s => {
+          const trimmed = s.trim()
+          return trimmed.length > 20 && trimmed.split(/\s+/).length >= 4
+        })
+        
+        if (sentences.length > 0) {
+          taskExtraction.summary = sentences.slice(0, 3).join('. ').trim()
+          if (taskExtraction.summary.length > 400) {
+            taskExtraction.summary = taskExtraction.summary.substring(0, 397) + '...'
+          }
+        } else {
+          // Fallback to first 300 chars if no good sentences found
+          taskExtraction.summary = transcriptionText.length > 300 
+            ? `${transcriptionText.substring(0, 297).trim()}...`
+            : transcriptionText.trim()
+        }
       }
       
       if (typeof taskExtraction.confidence !== 'number') {
@@ -177,11 +223,11 @@ export async function POST(request: NextRequest) {
     const extractFallbackTitle = (text: string): string | null => {
       if (!text || text.length < 20) return null
       
-      // Try to find key phrases that indicate meeting topics
+      // Try to find key phrases that indicate meeting topics - ensure complete words
       const topicPatterns = [
-        /(?:discussing|talking about|meeting about|planning|reviewing|working on)\s+([^.!?]{10,50})/i,
-        /(?:agenda|topic|subject|focus|purpose).*?([^.!?]{10,50})/i,
-        /(?:let's|we'll|we're|going to|need to)\s+(?:discuss|talk about|review|plan|work on)\s+([^.!?]{10,50})/i
+        /(?:discussing|talking about|meeting about|planning|reviewing|working on)\s+([^.!?]{10,80})/i,
+        /(?:agenda|topic|subject|focus|purpose)\s+(?:is|for|about)\s+([^.!?]{10,80})/i,
+        /(?:let's|we'll|we're|going to|need to)\s+(?:discuss|talk about|review|plan|work on)\s+([^.!?]{10,80})/i
       ]
       
       for (const pattern of topicPatterns) {
@@ -190,35 +236,47 @@ export async function POST(request: NextRequest) {
           let title = match[1].trim()
           // Remove common prefixes and filler words
           title = title.replace(/^(so|well|okay|alright|yes|no|ok|um|uh|like|you know|the|a|an),?\s*/i, '')
+          // Remove trailing incomplete words (ensure we end at word boundary)
+          title = title.replace(/\s+\w*$/, '')
           // Capitalize first letter
           title = title.charAt(0).toUpperCase() + title.slice(1)
-          // Limit to 50 chars and ensure it ends at a word boundary
+          // Limit to 50 chars and ensure it ends at a word boundary (not mid-word)
           if (title.length > 50) {
             const truncated = title.substring(0, 47).trim()
             const lastSpace = truncated.lastIndexOf(' ')
-            title = lastSpace > 10 ? truncated.substring(0, lastSpace) : truncated
+            // Only truncate at word boundary if it's not too short
+            title = lastSpace > 10 ? truncated.substring(0, lastSpace) : truncated.substring(0, 50)
           }
+          // Ensure title doesn't end mid-word or mid-sentence
           if (title.length >= 8 && title.length <= 50) {
             return title
           }
         }
       }
       
-      // Fallback: Try to find first sentence that's meaningful
-      const sentences = text.split(/[.!?]\s+/).filter(s => s.length > 10 && s.length < 100)
+      // Fallback: Try to find first complete sentence that's meaningful
+      const sentences = text.split(/[.!?]\s+/).filter(s => {
+        const trimmed = s.trim()
+        return trimmed.length > 15 && trimmed.length < 150 && 
+               !trimmed.match(/^(okay|yes|no|um|uh|so|well)\s*$/i) &&
+               trimmed.split(/\s+/).length >= 3 // At least 3 words
+      })
+      
       if (sentences.length > 0) {
         let title = sentences[0].trim()
         // Remove common prefixes
         title = title.replace(/^(so|well|okay|alright|yes|no|ok|um|uh|like|you know|the|a|an),?\s*/i, '')
         // Capitalize first letter
         title = title.charAt(0).toUpperCase() + title.slice(1)
-        // Limit to 50 chars at word boundary
+        // Limit to 50 chars at word boundary (never cut mid-word)
         if (title.length > 50) {
           const truncated = title.substring(0, 47).trim()
           const lastSpace = truncated.lastIndexOf(' ')
-          title = lastSpace > 10 ? truncated.substring(0, lastSpace) : truncated
+          // Only truncate at word boundary
+          title = lastSpace > 10 ? truncated.substring(0, lastSpace) : title.substring(0, 50).replace(/\s+\w*$/, '')
         }
-        if (title.length >= 8 && title.length <= 50) {
+        // Final check - ensure it's a complete phrase
+        if (title.length >= 8 && title.length <= 50 && !title.match(/\s+\w{1,2}$/)) {
           return title
         }
       }
@@ -298,11 +356,23 @@ Generate ONLY a very short title (3-8 words, no quotes, no JSON, no explanation)
         .replace(/```json\s*/g, '') // Remove markdown code blocks
         .replace(/```\s*/g, '')
         .replace(/\{[^}]*"title"\s*:\s*"([^"]+)"[^}]*\}/i, '$1') // Extract from JSON if wrapped
-        .replace(/\n.*/g, '') // Remove any newlines and everything after
+        .replace(/\n.*/g, '') // Remove any newlines and everything after first line
+        .split(/[.!?]/)[0] // Only take first sentence (stop at punctuation)
         .replace(/^[^a-zA-Z0-9]+/, '') // Remove leading non-alphanumeric
-        .replace(/[^a-zA-Z0-9]+$/, '') // Remove trailing non-alphanumeric
         .trim()
-        .substring(0, 50) // Ensure max 50 chars (shorter for concise titles)
+      
+      // Ensure we don't cut mid-word - truncate at word boundary
+      if (cleanedTitle.length > 50) {
+        const truncated = cleanedTitle.substring(0, 47).trim()
+        const lastSpace = truncated.lastIndexOf(' ')
+        // Only truncate at word boundary if there's a space
+        cleanedTitle = lastSpace > 10 ? truncated.substring(0, lastSpace) : truncated
+      }
+      
+      // Remove trailing incomplete words or punctuation
+      cleanedTitle = cleanedTitle.replace(/\s+\w{1,2}$/, '') // Remove trailing 1-2 char words
+      cleanedTitle = cleanedTitle.replace(/[^a-zA-Z0-9]+$/, '') // Remove trailing non-alphanumeric
+      cleanedTitle = cleanedTitle.trim()
       
       // ✅ Accept titles that are 8-50 characters (very short to medium length)
       // This allows for 3-8 word titles which is what we want

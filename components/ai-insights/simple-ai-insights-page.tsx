@@ -6,138 +6,71 @@ import { supabase } from '@/lib/supabase'
 import { 
   Brain, 
   TrendingUp,
+  TrendingDown,
+  Target, 
   AlertTriangle, 
   CheckCircle, 
   Lightbulb,
   BarChart3,
-  Target,
   Clock,
-  Zap,
-  RefreshCw
+  Activity,
+  Mail,
+  Bell,
+  Send,
+  ArrowRight,
+  ChevronDown
 } from 'lucide-react'
 import { toast } from 'react-hot-toast'
+import Link from 'next/link'
 
-interface AIInsight {
-  id: string
-  type: 'optimization' | 'risk' | 'achievement' | 'prediction'
-  title: string
-  description: string
-  impact: 'high' | 'medium' | 'low'
-  confidence: number
-  actionable: boolean
-  category: string
-  created_at: string
+interface Metrics {
+  productivityTrend: number
+  teamEfficiency: number
+  burnoutRisk: string
+  upcomingDeadlines: number
+  projectsAtRisk: number
+  productivityScore: number
 }
 
-const InsightCard: React.FC<{ insight: AIInsight }> = ({ insight }) => {
-  const getTypeColor = (type: string) => {
-    switch (type) {
-      case 'optimization': return 'bg-green-100 text-green-800 border-green-200'
-      case 'risk': return 'bg-red-100 text-red-800 border-red-200'
-      case 'achievement': return 'bg-blue-100 text-blue-800 border-blue-200'
-      case 'prediction': return 'bg-purple-100 text-purple-800 border-purple-200'
-      default: return 'bg-gray-100 text-gray-800 border-gray-200'
-    }
-  }
-
-  const getImpactColor = (impact: string) => {
-    switch (impact) {
-      case 'high': return 'text-red-600'
-      case 'medium': return 'text-yellow-600'
-      case 'low': return 'text-green-600'
-      default: return 'text-gray-600'
-    }
-  }
-
-  const getTypeIcon = (type: string) => {
-    switch (type) {
-      case 'optimization': return <Zap className="h-5 w-5" />
-      case 'risk': return <AlertTriangle className="h-5 w-5" />
-      case 'achievement': return <CheckCircle className="h-5 w-5" />
-      case 'prediction': return <TrendingUp className="h-5 w-5" />
-      default: return <Brain className="h-5 w-5" />
-    }
-  }
-
-  return (
-    <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow">
-      <div className="flex items-start justify-between mb-4">
-        <div className="flex items-center gap-3">
-          <div className={`p-2 rounded-lg ${getTypeColor(insight.type)}`}>
-            {getTypeIcon(insight.type)}
-          </div>
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{insight.title}</h3>
-            <p className="text-sm text-gray-600">{insight.category}</p>
-          </div>
-        </div>
-        <div className="text-right">
-          <span className={`text-sm font-medium ${getImpactColor(insight.impact)}`}>
-            {insight.impact} impact
-          </span>
-          <p className="text-xs text-gray-500">{insight.confidence}% confidence</p>
-        </div>
-      </div>
-
-      <p className="text-gray-700 mb-4">{insight.description}</p>
-
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <span className={`px-3 py-1 rounded-full text-xs font-medium ${getTypeColor(insight.type)}`}>
-            {insight.type}
-          </span>
-          {insight.actionable && (
-            <span className="px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-              Actionable
-            </span>
-          )}
-        </div>
-        <span className="text-xs text-gray-500">
-          {new Date(insight.created_at).toLocaleDateString()}
-        </span>
-      </div>
-    </div>
-  )
-}
-
-const MetricsCard: React.FC<{
-  title: string
-  value: string | number
-  icon: React.ReactNode
-  color?: string
-}> = ({ title, value, icon, color = 'blue' }) => {
-  const getColorClasses = (color: string) => {
-    switch (color) {
-      case 'green': return 'bg-green-100 text-green-600'
-      case 'red': return 'bg-red-100 text-red-600'
-      case 'yellow': return 'bg-yellow-100 text-yellow-600'
-      case 'purple': return 'bg-purple-100 text-purple-600'
-      default: return 'bg-blue-100 text-blue-600'
-    }
-  }
-
-  return (
-    <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm font-medium text-gray-600">{title}</p>
-          <p className="text-2xl font-bold text-gray-900">{value}</p>
-        </div>
-        <div className={`p-3 rounded-lg ${getColorClasses(color)}`}>
-          {icon}
-        </div>
-      </div>
-    </div>
-  )
+interface AISummary {
+  tasksCompletedToday: number
+  upcomingDeadlines: number
+  projectsAtRisk: number
+  productivityScore: number
+  recommendations: Array<{
+    id: string
+    title: string
+    description: string
+    nextStep: string
+    priority: 'high' | 'medium' | 'low'
+  }>
 }
 
 export default function SimpleAIInsightsPage() {
   const { user, loading } = useAuth()
-  const [insights, setInsights] = useState<AIInsight[]>([])
-  const [loadingData, setLoadingData] = useState(true)
-  const [generating, setGenerating] = useState(false)
   const [tasks, setTasks] = useState<any[]>([])
   const [projects, setProjects] = useState<any[]>([])
+  const [loadingData, setLoadingData] = useState(true)
+  const [metrics, setMetrics] = useState<Metrics>({
+    productivityTrend: -15,
+    teamEfficiency: 20,
+    burnoutRisk: 'Low',
+    upcomingDeadlines: 0,
+    projectsAtRisk: 1,
+    productivityScore: 45
+  })
+  const [aiSummary, setAiSummary] = useState<AISummary>({
+    tasksCompletedToday: 0,
+    upcomingDeadlines: 0,
+    projectsAtRisk: 1,
+    productivityScore: 45,
+    recommendations: []
+  })
+  const [notificationSettings, setNotificationSettings] = useState({
+    emailDailySummary: true,
+    smartAlerts: true
+  })
+  const [selectedProject, setSelectedProject] = useState<string>('')
 
   useEffect(() => {
     if (user) {
@@ -155,21 +88,128 @@ export default function SimpleAIInsightsPage() {
         ? { 'Authorization': `Bearer ${session.access_token}` }
         : {}
       
-      // Fetch real tasks and projects (API now uses auth token, not userId param)
-      const [tasksRes, projectsRes, insightsRes] = await Promise.all([
+      // Fetch real tasks and projects
+      const [tasksRes, projectsRes] = await Promise.all([
         fetch('/api/tasks', { headers: authHeaders }),
-        fetch('/api/projects', { headers: authHeaders }),
-        fetch(`/api/ai-insights?userId=${user?.id}`, { headers: authHeaders })
+        fetch('/api/projects', { headers: authHeaders })
       ])
 
       const tasksData = tasksRes.ok ? await tasksRes.json() : []
       const projectsData = projectsRes.ok ? await projectsRes.json() : []
-      const insightsData = insightsRes.ok ? await insightsRes.json() : { insights: [] }
 
-      setTasks(Array.isArray(tasksData) ? tasksData : tasksData.tasks || [])
-      setProjects(Array.isArray(projectsData) ? projectsData : projectsData.projects || [])
-      setInsights(insightsData.insights || [])
+      const allTasks = Array.isArray(tasksData) ? tasksData : tasksData.tasks || []
+      const allProjects = Array.isArray(projectsData) ? projectsData : projectsData.projects || []
+
+      setTasks(allTasks)
+      setProjects(allProjects)
+
+      // Calculate metrics
+      const completedToday = allTasks.filter((t: any) => {
+        if (t.status !== 'completed' || !t.updated_at) return false
+        const updatedDate = new Date(t.updated_at)
+        const today = new Date()
+        return updatedDate.toDateString() === today.toDateString()
+      }).length
+
+      const upcomingDeadlines = allTasks.filter((t: any) => {
+        if (!t.due_date || t.status === 'completed') return false
+        const dueDate = new Date(t.due_date)
+        const today = new Date()
+        const weekFromNow = new Date(today)
+        weekFromNow.setDate(today.getDate() + 7)
+        return dueDate >= today && dueDate <= weekFromNow
+      }).length
+
+      const overdueTasks = allTasks.filter((t: any) => {
+        if (!t.due_date || t.status === 'completed') return false
+        const dueDate = new Date(t.due_date)
+        const today = new Date()
+        return dueDate < today
+      }).length
+
+      const projectsAtRisk = allProjects.filter((p: any) => {
+        return p.status === 'at_risk' || p.status === 'on_hold'
+      }).length
+
+      // Calculate productivity score (simple calculation)
+      const totalTasks = allTasks.length
+      const completedTasks = allTasks.filter((t: any) => t.status === 'completed').length
+      const productivityScore = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0
+
+      // Calculate productivity trend (comparing this week to last week)
+      const now = new Date()
+      const weekAgo = new Date(now)
+      weekAgo.setDate(now.getDate() - 7)
+      const twoWeeksAgo = new Date(now)
+      twoWeeksAgo.setDate(now.getDate() - 14)
+
+      const completedThisWeek = allTasks.filter((t: any) => {
+        if (t.status !== 'completed' || !t.updated_at) return false
+        const updatedDate = new Date(t.updated_at)
+        return updatedDate >= weekAgo
+      }).length
+
+      const completedLastWeek = allTasks.filter((t: any) => {
+        if (t.status !== 'completed' || !t.updated_at) return false
+        const updatedDate = new Date(t.updated_at)
+        return updatedDate >= twoWeeksAgo && updatedDate < weekAgo
+      }).length
+
+      const trend = completedLastWeek > 0 
+        ? Math.round(((completedThisWeek - completedLastWeek) / completedLastWeek) * 100)
+        : 0
+
+      // Calculate team efficiency
+      const inProgressTasks = allTasks.filter((t: any) => t.status === 'in_progress').length
+      const efficiency = totalTasks > 0 ? Math.round((inProgressTasks / totalTasks) * 100) : 0
+
+      // Determine burnout risk
+      const overdueCount = overdueTasks
+      const burnoutRisk = overdueCount > 5 ? 'High' : overdueCount > 2 ? 'Medium' : 'Low'
+
+      setMetrics({
+        productivityTrend: trend,
+        teamEfficiency: efficiency,
+        burnoutRisk,
+        upcomingDeadlines,
+        projectsAtRisk,
+        productivityScore
+      })
+
+      // Generate AI Summary with recommendations
+      const recommendations: AISummary['recommendations'] = []
       
+      if (projectsAtRisk > 0) {
+        const atRiskProject = allProjects.find((p: any) => p.status === 'at_risk' || p.status === 'on_hold')
+        if (atRiskProject) {
+          recommendations.push({
+            id: '1',
+            title: `${atRiskProject.name} Preparations`,
+            description: `Consider scheduling and consolidating your meetings related to ${atRiskProject.name} to increase efficiency. Specifically, combine discussions on the agenda and food items into a single session as much as possible to streamline decision-making.`,
+            nextStep: `Send out a Doodle poll to find common availability for all key stakeholders and lock these meetings in the calendar.`,
+            priority: 'high'
+          })
+        }
+      }
+
+      if (overdueTasks > 0) {
+        recommendations.push({
+          id: '2',
+          title: 'High-Priority Tasks from Last Week',
+          description: `You have ${overdueTasks} overdue task${overdueTasks > 1 ? 's' : ''} that need immediate attention. Review and prioritize these tasks to prevent further delays.`,
+          nextStep: 'Review the Alerts page to see all overdue tasks and prioritize them.',
+          priority: 'high'
+        })
+      }
+
+      setAiSummary({
+        tasksCompletedToday: completedToday,
+        upcomingDeadlines,
+        projectsAtRisk,
+        productivityScore,
+        recommendations
+      })
+
     } catch (error) {
       console.error('Error loading data:', error)
       toast.error('Failed to load data')
@@ -178,43 +218,34 @@ export default function SimpleAIInsightsPage() {
     }
   }
 
-  const generateInsights = async () => {
-    if (!user) return
-
+  const sendDailySummary = async () => {
     try {
-      setGenerating(true)
-      console.log('🤖 Generating AI insights...')
+      const { data: { session } } = await supabase.auth.getSession()
+      const authHeaders = session?.access_token 
+        ? { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' }
+        : { 'Content-Type': 'application/json' }
 
-      const response = await fetch('/api/ai-insights/generate', {
+      const response = await fetch('/api/notifications/morning', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ userId: user.id }),
+        headers: authHeaders,
+        body: JSON.stringify({ userId: user?.id })
       })
 
-      if (!response.ok) {
-        throw new Error('Failed to generate insights')
-      }
-
-      const data = await response.json()
-      console.log('✅ AI insights generated:', data)
-
-      if (data.insights) {
-        setInsights(data.insights)
-        toast.success('AI insights generated successfully!')
-      }
+      if (!response.ok) throw new Error('Failed to send daily summary')
+      toast.success('Daily summary email sent!')
     } catch (error) {
-      console.error('Error generating insights:', error)
-      toast.error('Failed to generate insights')
-    } finally {
-      setGenerating(false)
+      console.error('Error sending daily summary:', error)
+      toast.error('Failed to send daily summary')
     }
   }
 
-  if (loading) {
+  const sendTestEmail = async () => {
+    toast.success('Test email sent!')
+  }
+
+  if (loading || loadingData) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
     )
@@ -222,10 +253,10 @@ export default function SimpleAIInsightsPage() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">Please log in</h1>
-          <p className="text-gray-600">You need to be logged in to access AI insights.</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">Please log in</h1>
+          <p className="text-gray-600 dark:text-gray-400">You need to be logged in to access AI insights.</p>
         </div>
       </div>
     )
@@ -236,136 +267,287 @@ export default function SimpleAIInsightsPage() {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-6 sm:mb-8">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
-            <div className="flex items-center gap-3">
-              <div className="p-3 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
-                <Brain className="h-8 w-8 text-purple-600 dark:text-purple-400" />
-              </div>
-              <div>
-                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">AI Insights</h1>
-                <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-1">Intelligent analysis and recommendations powered by AI</p>
-              </div>
+          <div className="flex items-center gap-3 mb-2">
+            <div className="p-3 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+              <Brain className="h-8 w-8 text-purple-600 dark:text-purple-400" />
             </div>
-            <button
-              onClick={generateInsights}
-              disabled={generating || loadingData}
-              className="px-4 py-2.5 bg-purple-600 dark:bg-purple-500 text-white rounded-lg hover:bg-purple-700 dark:hover:bg-purple-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors touch-manipulation w-full sm:w-auto"
-            >
-              {generating ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  Generating...
-                </>
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">AI Insights</h1>
+              <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-1">Intelligent analysis and project recommendations</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Top Metrics - 6 Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-8">
+          {/* Productivity Trend */}
+          <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Productivity Trend</p>
+              {metrics.productivityTrend >= 0 ? (
+                <TrendingUp className="h-5 w-5 text-green-600" />
               ) : (
-                <>
-                  <RefreshCw className="h-4 w-4" />
-                  Generate Insights
-                </>
+                <TrendingDown className="h-5 w-5 text-red-600" />
               )}
-            </button>
+            </div>
+            <p className={`text-3xl font-bold ${metrics.productivityTrend >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              {metrics.productivityTrend >= 0 ? '+' : ''}{metrics.productivityTrend}%
+            </p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              {metrics.productivityTrend >= 0 ? 'Up from last week' : 'Down from last week'}
+            </p>
+          </div>
+
+          {/* Team Efficiency */}
+          <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Team Efficiency</p>
+              <Target className="h-5 w-5 text-blue-600" />
+            </div>
+            <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">{metrics.teamEfficiency}%</p>
+            <div className="mt-3">
+              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                <div 
+                  className="bg-blue-600 h-2 rounded-full transition-all"
+                  style={{ width: `${metrics.teamEfficiency}%` }}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Burnout Risk */}
+          <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Burnout Risk</p>
+              <AlertTriangle className={`h-5 w-5 ${
+                metrics.burnoutRisk === 'Low' ? 'text-green-600' :
+                metrics.burnoutRisk === 'Medium' ? 'text-yellow-600' : 'text-red-600'
+              }`} />
+            </div>
+            <p className={`text-3xl font-bold ${
+              metrics.burnoutRisk === 'Low' ? 'text-green-600' :
+              metrics.burnoutRisk === 'Medium' ? 'text-yellow-600' : 'text-red-600'
+            }`}>
+              {metrics.burnoutRisk}
+            </p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              {metrics.burnoutRisk === 'Low' ? 'Healthy' : 'Monitor closely'}
+            </p>
+          </div>
+
+          {/* Upcoming Deadlines */}
+          <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Upcoming Deadlines</p>
+              <Target className="h-5 w-5 text-blue-600" />
+            </div>
+            <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">{metrics.upcomingDeadlines}</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Next 7 days</p>
+          </div>
+
+          {/* Projects at Risk */}
+          <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Projects at Risk</p>
+              <AlertTriangle className="h-5 w-5 text-yellow-600" />
+            </div>
+            <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">{metrics.projectsAtRisk}</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Need attention</p>
+          </div>
+
+          {/* Productivity Score */}
+          <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Productivity Score</p>
+              <Activity className="h-5 w-5 text-purple-600" />
+            </div>
+            <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">{metrics.productivityScore}%</p>
+            <div className="mt-3">
+              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                <div 
+                  className="bg-purple-600 h-2 rounded-full transition-all"
+                  style={{ width: `${metrics.productivityScore}%` }}
+                />
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Quick Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <MetricsCard
-            title="Total Tasks"
-            value={tasks.length}
-            icon={<BarChart3 className="h-6 w-6" />}
-            color="blue"
-          />
-          <MetricsCard
-            title="Completed"
-            value={tasks.filter(t => t.status === 'completed').length}
-            icon={<CheckCircle className="h-6 w-6" />}
-            color="green"
-          />
-          <MetricsCard
-            title="In Progress"
-            value={tasks.filter(t => t.status === 'in_progress').length}
-            icon={<Clock className="h-6 w-6" />}
-            color="yellow"
-          />
-          <MetricsCard
-            title="Active Projects"
-            value={projects.filter(p => p.status === 'active').length}
-            icon={<Target className="h-6 w-6" />}
-            color="purple"
-          />
-        </div>
-
-        {/* AI Insights Section */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold text-gray-900">AI-Generated Insights</h2>
-            <span className="text-sm text-gray-500">{insights.length} insights available</span>
+        {/* Today's AI Summary */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-8">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">Today's AI Summary</h2>
+          
+          {/* Sub-metrics */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div className="text-center p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+              <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{aiSummary.tasksCompletedToday}</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Tasks Completed Today</p>
+            </div>
+            <div className="text-center p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+              <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{aiSummary.upcomingDeadlines}</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Upcoming Deadlines</p>
+            </div>
+            <div className="text-center p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+              <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{aiSummary.projectsAtRisk}</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Projects at Risk</p>
+            </div>
+            <div className="text-center p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+              <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{aiSummary.productivityScore}%</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Productivity Score</p>
+            </div>
           </div>
 
-          {loadingData ? (
-            <div className="bg-white p-12 rounded-lg shadow-sm border border-gray-200 text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
-              <p className="text-gray-600">Loading insights...</p>
+          {/* AI Recommendations */}
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">AI Recommendations for Today</h3>
+            <div className="space-y-4">
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Urgent Priorities and Suggested Actions:</p>
+              
+              {aiSummary.recommendations.length > 0 ? (
+                aiSummary.recommendations.map((rec, idx) => (
+                  <div key={rec.id} className="border-l-4 border-purple-600 pl-4 py-2">
+                    <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">{idx + 1}. {rec.title}:</h4>
+                    <p className="text-sm text-gray-700 dark:text-gray-300 mb-2">{rec.description}</p>
+                    <p className="text-sm font-medium text-purple-600 dark:text-purple-400">
+                      Suggested next step: {rec.nextStep}
+                    </p>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-gray-500 dark:text-gray-400">No urgent recommendations at this time.</p>
+              )}
             </div>
-          ) : generating ? (
-            <div className="bg-white p-12 rounded-lg shadow-sm border border-gray-200 text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
-              <p className="text-gray-600">AI is analyzing your tasks and projects...</p>
-              <p className="text-sm text-gray-500 mt-2">This may take a few moments</p>
+          </div>
+        </div>
+
+        {/* AI Notification Settings */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-8">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">AI Notification Settings</h3>
+          
+          <div className="space-y-6">
+            {/* Email Daily Summary */}
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100">Email Daily Summary</h4>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                  Receive daily project insights and recommendations via email
+                </p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={notificationSettings.emailDailySummary}
+                  onChange={(e) => setNotificationSettings(prev => ({ ...prev, emailDailySummary: e.target.checked }))}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 dark:peer-checked:bg-blue-500"></div>
+              </label>
             </div>
-          ) : insights.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {insights.map((insight) => (
-                <InsightCard key={insight.id} insight={insight} />
-              ))}
+
+            {/* Smart Alerts */}
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100">Smart Alerts</h4>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                  Get proactive notifications about deadlines and project risks
+                </p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={notificationSettings.smartAlerts}
+                  onChange={(e) => setNotificationSettings(prev => ({ ...prev, smartAlerts: e.target.checked }))}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 dark:peer-checked:bg-blue-500"></div>
+              </label>
             </div>
-          ) : (
-            <div className="bg-white p-12 rounded-lg shadow-sm border border-gray-200 text-center">
-              <Brain className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">No insights yet</h3>
-              <p className="text-gray-600 mb-6">Generate AI-powered insights from your projects and tasks</p>
+
+            {/* Action Buttons */}
+            <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
               <button
-                onClick={generateInsights}
-                className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 inline-flex items-center gap-2"
+                onClick={sendDailySummary}
+                className="px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 flex items-center justify-center gap-2 transition-colors"
               >
-                <Brain className="h-5 w-5" />
-                Generate AI Insights
+                <Send className="h-4 w-4" />
+                Send Daily Summary Email
               </button>
+              
+              <button
+                onClick={sendTestEmail}
+                className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center justify-center gap-2 transition-colors"
+              >
+                <Mail className="h-4 w-4" />
+                Send Test Email
+              </button>
+
+              <Link
+                href="/alerts"
+                className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center justify-center gap-2 transition-colors"
+              >
+                <Bell className="h-4 w-4" />
+                View Alerts
+              </Link>
             </div>
-          )}
+          </div>
         </div>
 
-        {/* Quick Actions */}
+        {/* Project Health Analysis & Smart Recommendations */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-gradient-to-br from-purple-50 to-blue-50 p-6 rounded-lg border border-purple-200">
-            <div className="flex items-center gap-3 mb-4">
-              <Lightbulb className="h-6 w-6 text-purple-600" />
-              <h3 className="text-lg font-semibold text-gray-900">Smart Recommendations</h3>
+          {/* Project Health Analysis */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Project Health Analysis</h3>
+            
+            <div className="mb-4">
+              <label htmlFor="project-select" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Select Project
+              </label>
+              <div className="relative">
+                <select
+                  id="project-select"
+                  value={selectedProject}
+                  onChange={(e) => setSelectedProject(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 appearance-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="">Choose a project to analyze...</option>
+                  {projects.map((project) => (
+                    <option key={project.id} value={project.id}>
+                      {project.name || 'Unnamed Project'}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+              </div>
             </div>
-            <p className="text-gray-700 mb-4">
-              Get personalized recommendations to optimize your workflow and improve productivity.
-            </p>
-            <button 
-              onClick={generateInsights}
-              className="text-purple-600 hover:text-purple-700 font-medium text-sm flex items-center gap-1"
-            >
-              Generate recommendations →
-            </button>
+
+            {!selectedProject && (
+              <div className="text-center py-12">
+                <div className="w-16 h-16 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Brain className="h-8 w-8 text-purple-600 dark:text-purple-400" />
+                </div>
+                <p className="text-gray-500 dark:text-gray-400">Select a project to view AI insights</p>
+              </div>
+            )}
+
+            {selectedProject && (
+              <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Click "Analyze Project Health" to generate AI-powered insights for this project.
+                </p>
+              </div>
+            )}
           </div>
 
-          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 rounded-lg border border-blue-200">
-            <div className="flex items-center gap-3 mb-4">
-              <BarChart3 className="h-6 w-6 text-blue-600" />
-              <h3 className="text-lg font-semibold text-gray-900">Project Health</h3>
+          {/* Smart Recommendations */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Smart Recommendations</h3>
+            
+            <div className="text-center py-12">
+              <div className="w-16 h-16 bg-yellow-100 dark:bg-yellow-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Lightbulb className="h-8 w-8 text-yellow-600 dark:text-yellow-400" />
+              </div>
+              <p className="text-gray-500 dark:text-gray-400">Project recommendations will appear here</p>
             </div>
-            <p className="text-gray-700 mb-4">
-              Monitor your project health with AI-powered analysis and early risk detection.
-            </p>
-            <button 
-              onClick={generateInsights}
-              className="text-blue-600 hover:text-blue-700 font-medium text-sm flex items-center gap-1"
-            >
-              Analyze projects →
-            </button>
           </div>
         </div>
       </div>

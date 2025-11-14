@@ -367,21 +367,30 @@ IMPORTANT: If the transcript contains ANY discussion of work, planning, or follo
       console.error('   Error type:', error?.constructor?.name)
       console.error('   Response was:', response?.substring(0, 500))
       
-      // Try to extract at least a summary task as fallback
-      let fallbackSummary = 'Task extraction failed. Please review the transcript manually.'
-      if (text && text.length > 50) {
-        fallbackSummary = `Review meeting transcript: ${text.substring(0, 150)}...`
+      // Generate a meaningful summary from transcript even when AI fails
+      let fallbackSummary = ''
+      if (text && text.length > 100) {
+        // Extract first 2-3 sentences for summary
+        const sentences = text.split(/[.!?]\s+/).filter(s => s.trim().length > 20)
+        if (sentences.length > 0) {
+          fallbackSummary = sentences.slice(0, 3).join('. ').trim()
+          if (fallbackSummary.length > 300) {
+            fallbackSummary = fallbackSummary.substring(0, 297) + '...'
+          }
+        } else {
+          fallbackSummary = text.substring(0, 300).trim() + (text.length > 300 ? '...' : '')
+        }
+      } else if (text && text.length > 50) {
+        fallbackSummary = text.substring(0, 200).trim() + (text.length > 200 ? '...' : '')
+      } else {
+        fallbackSummary = 'Meeting transcript is available but too short to extract meaningful information.'
       }
       
+      // Don't create mock tasks - return empty array so no generic tasks are created
       return {
-        tasks: [{
-          title: 'Review meeting transcript and extract action items',
-          description: fallbackSummary,
-          priority: 'medium',
-          estimatedHours: 1
-        }],
-        summary: 'Please review the transcript to identify action items manually.',
-        confidence: 0.3
+        tasks: [], // Return empty array - let pattern matching in process-recording handle fallback
+        summary: fallbackSummary || 'Meeting recorded. Please review transcript for details.',
+        confidence: 0.0
       }
     }
   }
