@@ -388,23 +388,11 @@ export default function SimpleAIInsightsPage() {
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-8">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">Today's AI Summary</h2>
           
-          {/* Sub-metrics */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          {/* Sub-metrics - Only showing unique metrics not in top cards */}
+          <div className="grid grid-cols-1 md:grid-cols-1 gap-4 mb-6">
             <div className="text-center p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
               <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{aiSummary.tasksCompletedToday}</p>
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Tasks Completed Today</p>
-            </div>
-            <div className="text-center p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-              <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{aiSummary.upcomingDeadlines}</p>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Upcoming Deadlines</p>
-            </div>
-            <div className="text-center p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-              <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{aiSummary.projectsAtRisk}</p>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Projects at Risk</p>
-            </div>
-            <div className="text-center p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-              <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{aiSummary.productivityScore}%</p>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Productivity Score</p>
             </div>
           </div>
 
