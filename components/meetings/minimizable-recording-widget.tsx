@@ -52,7 +52,11 @@ export default function MinimizableRecordingWidget({
             clearInterval(pollInterval)
             toast.error('Transcription failed: ' + data.message)
           }
-          // else still processing, continue polling
+          // Note: status 'pending', 'processing', or 'queued' means we should continue polling
+        } else {
+          // Log non-OK responses for debugging
+          const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
+          console.warn(`⚠️ Check-transcription returned ${response.status} for ${sessionId}:`, errorData)
         }
       } catch (error) {
         console.error(`Error polling transcription:`, error)

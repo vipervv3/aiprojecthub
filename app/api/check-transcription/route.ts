@@ -54,10 +54,12 @@ export async function POST(request: NextRequest) {
     const transcriptId = session.metadata?.transcriptId || session.metadata?.assemblyai_job_id
 
     if (!transcriptId) {
-      return NextResponse.json(
-        { error: 'No transcription job found. Transcription may not have started yet.' },
-        { status: 400 }
-      )
+      // Return a valid response indicating transcription hasn't started yet
+      // This is a valid state, not an error - the client can continue polling
+      return NextResponse.json({
+        status: 'pending',
+        message: 'Transcription has not started yet. Please wait...'
+      })
     }
 
     // Check transcription status with AssemblyAI

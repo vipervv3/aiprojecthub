@@ -296,6 +296,11 @@ export default function EnhancedMeetingsPage() {
                   console.error(`❌ Transcription failed for ${meeting._recordingSessionId}:`, data.message)
                   hasUpdates = true
                 }
+                // Note: status 'pending', 'processing', or 'queued' means we should continue polling
+              } else {
+                // Log non-OK responses for debugging
+                const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
+                console.warn(`⚠️ Check-transcription returned ${response.status} for ${meeting._recordingSessionId}:`, errorData)
               }
             } catch (error) {
               console.error(`Error checking transcription for ${meeting._recordingSessionId}:`, error)
