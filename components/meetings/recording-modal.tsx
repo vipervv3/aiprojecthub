@@ -197,10 +197,11 @@ export default function RecordingModal({
         throw new Error(result.error || 'Upload failed')
       }
 
-      console.log('✅ Recording uploaded:', result.session.id)
+      console.log('✅ Recording uploaded:', result?.session?.id || 'unknown')
       
       // Start transcription if AssemblyAI is configured
-      if (result.recordingUrl) {
+      // Ensure result exists and has recordingUrl before accessing it
+      if (result && result.recordingUrl) {
         try {
           await fetch('/api/transcribe', {
             method: 'POST',

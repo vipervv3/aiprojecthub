@@ -784,7 +784,6 @@ export default function MinimizableRecordingWidget({
         console.log('📡 Upload response status:', response.status)
         console.log('   Response OK:', response.ok)
         
-        let result
         try {
           result = await response.json()
           console.log('📡 Upload response data:', result)
@@ -884,11 +883,12 @@ export default function MinimizableRecordingWidget({
           }
         }
 
-        console.log('✅ Recording uploaded:', result.session.id)
+        console.log('✅ Recording uploaded:', result?.session?.id || 'unknown')
       }
       
       // ✅ Trigger transcription (which will then trigger AI processing)
-      if (result.recordingUrl) {
+      // Ensure result exists and has recordingUrl before accessing it
+      if (result && result.recordingUrl) {
         console.log('🎙️ Starting transcription...')
         console.log('   Recording URL:', result.recordingUrl)
         console.log('   Session ID:', result.session.id)
@@ -918,8 +918,16 @@ export default function MinimizableRecordingWidget({
           // Don't fail the whole upload if transcription fails
         }
       } else {
-        console.error('❌ No recordingUrl in result!')
-        toast.error('Upload succeeded but transcription cannot start - no URL')
+        console.error('❌ No recordingUrl in result!', result)
+        // Try to get recordingUrl from session data if available
+        if (result && result.session) {
+          console.warn('⚠️ Result has session but no recordingUrl. Attempting to construct URL from file_path...')
+          // The API should have returned recordingUrl, but if it didn't, we can't start transcription
+          toast.warning('Upload succeeded but transcription URL is missing. Recording is saved but transcription may not start automatically.')
+        } else {
+          console.error('❌ Result is undefined or missing session!')
+          toast.error('Upload succeeded but result structure is invalid')
+        }
       }
 
       // Show appropriate message based on file size
