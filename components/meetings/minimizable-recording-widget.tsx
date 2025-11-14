@@ -281,27 +281,9 @@ export default function MinimizableRecordingWidget({
           return
         }
 
-        // ✅ First check if recording session already exists in database (successful upload)
-        try {
-          const { data: existingSession } = await supabase
-            .from('recording_sessions')
-            .select('id')
-            .eq('id', state.sessionId)
-            .single()
-          
-          if (existingSession) {
-            // Recording already exists - clean up recovery state
-            console.log('✅ Recording already uploaded, cleaning up recovery state')
-            localStorage.removeItem('recording_recovery_state')
-            // Also clean up chunks since recording is already saved
-            await recordingBackupService.init()
-            await recordingBackupService.clearChunks(state.sessionId)
-            return
-          }
-        } catch (dbCheckError) {
-          // Session doesn't exist or error checking - continue with recovery check
-          console.log('Recording session not found in database, checking for recovery...')
-        }
+        // ✅ Note: state.sessionId is a client-generated ID for IndexedDB tracking, not a database UUID
+        // We can't query the database with it. Instead, we check if chunks exist in IndexedDB.
+        // If chunks exist, the recording might need recovery. If no chunks, it was likely already uploaded.
 
         // Check if session has chunks in IndexedDB
         await recordingBackupService.init()
