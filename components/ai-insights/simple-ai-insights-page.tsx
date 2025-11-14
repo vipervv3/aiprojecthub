@@ -100,6 +100,13 @@ export default function SimpleAIInsightsPage() {
       const allTasks = Array.isArray(tasksData) ? tasksData : tasksData.tasks || []
       const allProjects = Array.isArray(projectsData) ? projectsData : projectsData.projects || []
 
+      console.log('📊 Loaded live data:', {
+        tasks: allTasks.length,
+        projects: allProjects.length,
+        completedTasks: allTasks.filter((t: any) => t.status === 'completed').length,
+        inProgressTasks: allTasks.filter((t: any) => t.status === 'in_progress').length
+      })
+
       setTasks(allTasks)
       setProjects(allProjects)
 
@@ -167,14 +174,18 @@ export default function SimpleAIInsightsPage() {
       const overdueCount = overdueTasks
       const burnoutRisk = overdueCount > 5 ? 'High' : overdueCount > 2 ? 'Medium' : 'Low'
 
-      setMetrics({
+      const calculatedMetrics = {
         productivityTrend: trend,
         teamEfficiency: efficiency,
         burnoutRisk,
         upcomingDeadlines,
         projectsAtRisk,
         productivityScore
-      })
+      }
+
+      console.log('📈 Calculated metrics from live data:', calculatedMetrics)
+      
+      setMetrics(calculatedMetrics)
 
       // Generate AI Summary with recommendations
       const recommendations: AISummary['recommendations'] = []
