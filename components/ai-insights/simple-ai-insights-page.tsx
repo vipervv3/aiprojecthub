@@ -14,14 +14,9 @@ import {
   BarChart3,
   Clock,
   Activity,
-  Mail,
-  Bell,
-  Send,
-  ArrowRight,
   ChevronDown
 } from 'lucide-react'
 import { toast } from 'react-hot-toast'
-import Link from 'next/link'
 
 interface Metrics {
   productivityTrend: number
@@ -65,10 +60,6 @@ export default function SimpleAIInsightsPage() {
     projectsAtRisk: 1,
     productivityScore: 45,
     recommendations: []
-  })
-  const [notificationSettings, setNotificationSettings] = useState({
-    emailDailySummary: true,
-    smartAlerts: true
   })
   const [selectedProject, setSelectedProject] = useState<string>('')
 
@@ -229,30 +220,6 @@ export default function SimpleAIInsightsPage() {
     }
   }
 
-  const sendDailySummary = async () => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      const authHeaders = session?.access_token 
-        ? { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' }
-        : { 'Content-Type': 'application/json' }
-
-      const response = await fetch('/api/notifications/morning', {
-        method: 'POST',
-        headers: authHeaders,
-        body: JSON.stringify({ userId: user?.id })
-      })
-
-      if (!response.ok) throw new Error('Failed to send daily summary')
-      toast.success('Daily summary email sent!')
-    } catch (error) {
-      console.error('Error sending daily summary:', error)
-      toast.error('Failed to send daily summary')
-    }
-  }
-
-  const sendTestEmail = async () => {
-    toast.success('Test email sent!')
-  }
 
   if (loading || loadingData) {
     return (
@@ -415,78 +382,6 @@ export default function SimpleAIInsightsPage() {
               ) : (
                 <p className="text-sm text-gray-500 dark:text-gray-400">No urgent recommendations at this time.</p>
               )}
-            </div>
-          </div>
-        </div>
-
-        {/* AI Notification Settings */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-8">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">AI Notification Settings</h3>
-          
-          <div className="space-y-6">
-            {/* Email Daily Summary */}
-            <div className="flex items-center justify-between">
-              <div className="flex-1">
-                <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100">Email Daily Summary</h4>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                  Receive daily project insights and recommendations via email
-                </p>
-              </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={notificationSettings.emailDailySummary}
-                  onChange={(e) => setNotificationSettings(prev => ({ ...prev, emailDailySummary: e.target.checked }))}
-                  className="sr-only peer"
-                />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 dark:peer-checked:bg-blue-500"></div>
-              </label>
-            </div>
-
-            {/* Smart Alerts */}
-            <div className="flex items-center justify-between">
-              <div className="flex-1">
-                <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100">Smart Alerts</h4>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                  Get proactive notifications about deadlines and project risks
-                </p>
-              </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={notificationSettings.smartAlerts}
-                  onChange={(e) => setNotificationSettings(prev => ({ ...prev, smartAlerts: e.target.checked }))}
-                  className="sr-only peer"
-                />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 dark:peer-checked:bg-blue-500"></div>
-              </label>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-              <button
-                onClick={sendDailySummary}
-                className="px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 flex items-center justify-center gap-2 transition-colors"
-              >
-                <Send className="h-4 w-4" />
-                Send Daily Summary Email
-              </button>
-              
-              <button
-                onClick={sendTestEmail}
-                className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center justify-center gap-2 transition-colors"
-              >
-                <Mail className="h-4 w-4" />
-                Send Test Email
-              </button>
-
-              <Link
-                href="/alerts"
-                className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center justify-center gap-2 transition-colors"
-              >
-                <Bell className="h-4 w-4" />
-                View Alerts
-              </Link>
             </div>
           </div>
         </div>
