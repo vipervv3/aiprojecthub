@@ -79,7 +79,10 @@ export async function POST(request: NextRequest) {
 
         // Trigger AI processing if not already processed
         if (!session.ai_processed && session.user_id) {
-          const projectId = session.metadata?.projectId || null
+          // ✅ Get projectId from multiple sources: direct column → metadata → null (same as transcribe route)
+          const projectId = (session as any).project_id || session.metadata?.projectId || null
+          console.log(`📁 Project ID sources: project_id column=${(session as any).project_id || 'none'}, metadata=${session.metadata?.projectId || 'none'}, final=${projectId || 'none'}`)
+          
           const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
           
           // Trigger in background (don't wait)
