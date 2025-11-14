@@ -506,7 +506,9 @@ Generate ONLY a very short title (3-8 words, no quotes, no JSON, no explanation)
       duration: session.duration || 0,
       recording_session_id: sessionId,
       user_id: userId, // ✅ CRITICAL: Set user_id for RLS policies
-      summary: taskExtraction.summary || 'No summary available',
+      summary: taskExtraction.summary || (transcriptionText.length > 300 
+        ? `${transcriptionText.substring(0, 297).trim()}...`
+        : transcriptionText.trim()) || 'No summary available',
       action_items: taskExtraction.tasks.map(t => ({
         title: t.title || 'Untitled action item',
         description: t.description || '',

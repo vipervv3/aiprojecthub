@@ -340,16 +340,8 @@ IMPORTANT: If the transcript contains ANY discussion of work, planning, or follo
       )
       
       if (validTasks.length === 0 && parsed.tasks.length > 0) {
-        console.warn('⚠️ All extracted tasks were invalid, using fallback')
-        // Try to create at least one task from the summary
-        if (parsed.summary && parsed.summary.trim().length > 0) {
-          validTasks.push({
-            title: 'Review meeting summary and follow up',
-            description: parsed.summary.substring(0, 200),
-            priority: 'medium',
-            estimatedHours: 1
-          })
-        }
+        console.warn('⚠️ All extracted tasks were invalid, no tasks will be created')
+        // Don't create fallback tasks - let pattern matching in process-recording handle extraction
       }
       
       console.log(`✅ Extracted ${validTasks.length} valid tasks from ${parsed.tasks.length} total`)
