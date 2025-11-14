@@ -281,6 +281,28 @@ export default function MinimizableRecordingWidget({
           return
         }
 
+        // ✅ First check if recording session already exists in database (successful upload)
+        try {
+          const { data: existingSession } = await supabase
+            .from('recording_sessions')
+            .select('id')
+            .eq('id', state.sessionId)
+            .single()
+          
+          if (existingSession) {
+            // Recording already exists - clean up recovery state
+            console.log('✅ Recording already uploaded, cleaning up recovery state')
+            localStorage.removeItem('recording_recovery_state')
+            // Also clean up chunks since recording is already saved
+            await recordingBackupService.init()
+            await recordingBackupService.clearChunks(state.sessionId)
+            return
+          }
+        } catch (dbCheckError) {
+          // Session doesn't exist or error checking - continue with recovery check
+          console.log('Recording session not found in database, checking for recovery...')
+        }
+
         // Check if session has chunks in IndexedDB
         await recordingBackupService.init()
         const chunks = await recordingBackupService.getChunks(state.sessionId)
@@ -1007,6 +1029,8 @@ export default function MinimizableRecordingWidget({
     setUploading(false)
     setIsProcessing(false)
     setProcessingStatus('')
+    // ✅ Clear recovery state after successful upload
+    localStorage.removeItem('recording_recovery_state')
   }
 
   const handleClose = () => {

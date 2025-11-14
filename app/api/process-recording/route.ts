@@ -300,8 +300,28 @@ export async function POST(request: NextRequest) {
         ? `Project Context: ${projectContext}\n\n`
         : ''
       
-      // Use more transcript for better context (first 4000 chars instead of 2000)
-      const transcriptExcerpt = transcriptionText.substring(0, 4000)
+      // ✅ Use intelligent transcript sampling: beginning (context), middle (core), end (conclusions)
+      // This gives better understanding of the ENTIRE meeting than just the first 4000 chars
+      const transcriptLength = transcriptionText.length
+      let transcriptExcerpt = ''
+      
+      if (transcriptLength <= 4000) {
+        // Short transcript - use all of it
+        transcriptExcerpt = transcriptionText
+      } else {
+        // Long transcript - sample key sections
+        const beginning = transcriptionText.substring(0, 1500) // First 1500 chars (context/agenda)
+        const middleStart = Math.floor(transcriptLength / 2) - 750
+        const middle = transcriptionText.substring(middleStart, middleStart + 1500) // Middle 1500 chars (core discussion)
+        const end = transcriptionText.substring(transcriptLength - 1500) // Last 1500 chars (conclusions/decisions)
+        
+        transcriptExcerpt = `${beginning}\n\n[... middle section ...]\n\n${middle}\n\n[... conclusion ...]\n\n${end}`
+      }
+      
+      // ✅ Also include task extraction summary if available (it summarizes the meeting well)
+      const summaryContext = taskExtraction?.summary && taskExtraction.summary.length > 50
+        ? `\n\nMeeting Summary: ${taskExtraction.summary.substring(0, 500)}`
+        : ''
       
       const titlePrompt = `You are an expert meeting title generator. Analyze this meeting transcript and generate a VERY SHORT, intelligent title that summarizes the ENTIRE meeting.
 
@@ -316,8 +336,8 @@ CRITICAL REQUIREMENTS:
 - Do NOT include quotes, colons, or any prefixes
 - Return ONLY the title text, nothing else
 
-${titleContext}Meeting Transcript:
-${transcriptExcerpt}
+${titleContext}Meeting Transcript (key sections):
+${transcriptExcerpt}${summaryContext}
 
 Examples of EXCELLENT titles (very short, intelligent overviews):
 - "Q4 Roadmap Planning" (3 words - captures main topic)
